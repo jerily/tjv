@@ -21,11 +21,15 @@ static Tcl_ThreadDataKey dataKey;
 static int tjv_ValidationCompile_initialized = 0;
 static Tcl_Mutex tjv_ValidationCompile_initialize_mx;
 
+// Forward declarations
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **last_arg);
+
 static tjv_ValidationElement *tjv_ValidationElementAlloc(tjv_ValidationElementTypeEx type) {
 
     tjv_ValidationElement *rc = ckalloc(sizeof(tjv_ValidationElement));
     memset(rc, 0, sizeof(tjv_ValidationElement));
 
+    rc->type_ex = type;
     rc->type = TJV_VALIDATION_TYPE_FROM_EX(type);
     assert(rc->type != (unsigned)-1 && "unable to convert tjv_ValidationElementTypeEx to tjv_ValidationElementType");
 
@@ -61,6 +65,12 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
         if (ve->opts.obj_type.keys_list != NULL) {
             Tcl_DecrRefCount(ve->opts.obj_type.keys_list);
         }
+        break;
+    case TJV_VALIDATION_ARRAY:
+        if (ve->opts.array_type.element != NULL) {
+            tjv_ValidationElementFree(ve->opts.array_type.element);
+        }
+        break;
     case TJV_VALIDATION_BOOLEAN:
         break;
     case TJV_VALIDATION_DOUBLE:
@@ -70,6 +80,116 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
     ckfree(ve);
 
     DBG2(printf("return: ok"));
+
+}
+
+static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_ValidationElement **element) {
+
+    DBG2(printf("enter"));
+
+    // We will use tjv_ValidationCompile() to parse items format and this
+    // function uses Tcl_ParseArgsObjv() to parse parameters.
+    // Tcl_ParseArgsObjv() expects that the first parameter of passed objv
+    // to be a function name. But in this case, the options start from
+    // the first parameter. To successfully parse our parameters, we need
+    // to add a stub as the first parameter. Thus, we have to work with
+    // a duplicated object.
+
+    Tcl_Obj *items_format = Tcl_DuplicateObj(data);
+    Tcl_Obj *stub_parameter = Tcl_NewStringObj("items", -1);
+    if (Tcl_ListObjReplace(interp, items_format, 0, 0, 1, &stub_parameter) != TCL_OK) {
+        DBG2(printf("return: error (wrong list format)"));
+        Tcl_BounceRefCount(stub_parameter);
+        Tcl_BounceRefCount(items_format);
+        return TCL_ERROR;
+    }
+
+    Tcl_Size items_objc;
+    Tcl_Obj **items_objv;
+    // We have already successfully inserted a stub parameter into items_format.
+    // Therefore, we are confident that this is the correct list and do not check
+    // for errors here.
+    Tcl_ListObjGetElements(NULL, items_format, &items_objc, &items_objv);
+
+    *element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL);
+    Tcl_BounceRefCount(items_format);
+
+    if (*element == NULL) {
+        DBG2(printf("return: error (failed to items format)"));
+        return TCL_ERROR;
+    }
+
+
+    DBG2(printf("return: ok"));
+    return TCL_OK;
+
+}
+
+static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, Tcl_Obj **keys_list_ptr, tjv_ValidationElement ***elements_ptr) {
+
+    DBG2(printf("enter"));
+
+    Tcl_Size child_count;
+    if (Tcl_ListObjLength(interp, data, &child_count) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    DBG2(printf("child properties count: %" TCL_SIZE_MODIFIER "d", child_count));
+
+    if (child_count == 0) {
+        DBG2(printf("return: ok (no keys)"));
+        return TCL_OK;
+    }
+
+    tjv_ValidationElement **elements = ckalloc(sizeof(tjv_ValidationElement*) * (child_count + 1));
+    memset(elements, 0, (sizeof(tjv_ValidationElement*) * (child_count + 1)));
+    *elements_ptr = elements;
+
+
+    Tcl_Obj *keys_list = Tcl_NewListObj(0, NULL);
+    Tcl_IncrRefCount(keys_list);
+    *keys_list_ptr = keys_list;
+
+    for (Tcl_Size i = 0; i < child_count; i++) {
+
+        Tcl_Obj *child_element;
+        Tcl_ListObjIndex(NULL, data, i, &child_element);
+
+        Tcl_Size child_objc;
+        Tcl_Obj **child_objv;
+        if (Tcl_ListObjGetElements(NULL, child_element, &child_objc, &child_objv) != TCL_OK) {
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf("object element #%" TCL_SIZE_MODIFIER "d"
+                " is malformed", i));
+            DBG2(printf("return: error (element #%" TCL_SIZE_MODIFIER "d is not a list", i));
+            return TCL_ERROR;
+        }
+
+        if (child_objc < 1) {
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf("object element #%" TCL_SIZE_MODIFIER "d"
+                " is an empty list", i));
+            DBG2(printf("return: error (element #%" TCL_SIZE_MODIFIER "d is an empty list", i));
+            return TCL_ERROR;
+        }
+
+        Tcl_ListObjAppendElement(NULL, keys_list, child_objv[0]);
+        const char *key_name = Tcl_GetString(child_objv[0]);
+
+        DBG2(printf("parse property: [%s]", key_name));
+        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, NULL);
+        if (elements[i] == NULL) {
+
+            DBG2(printf("return: error (failed to parse element #%" TCL_SIZE_MODIFIER "d [%s]: %s",
+                i, key_name, Tcl_GetStringResult(interp)));
+
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf("%s->%s", key_name, Tcl_GetStringResult(interp)));
+            return TCL_ERROR;
+
+        }
+
+    }
+
+    DBG2(printf("return: ok"));
+    return TCL_OK;
 
 }
 
@@ -83,12 +203,13 @@ static int copy_arg(void *clientData, Tcl_Obj *objPtr, void *dstPtr) {
     return 1;
 }
 
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[]) {
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **last_arg) {
 
     DBG2(printf("enter: objc: %d", objc));
 
     int idx;
     tjv_ValidationElement *rc = NULL;
+    Tcl_Obj **remObjv = NULL;
 
     Tcl_Obj *opt_type = NULL;
     int opt_is_required = 0;
@@ -99,6 +220,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     Tcl_Obj *opt_minimum = NULL;
     Tcl_Obj *opt_maximum = NULL;
     Tcl_Obj *opt_properties = NULL;
+    Tcl_Obj *opt_items = NULL;
 
 #pragma GCC diagnostic push
 // ignore warning for copy_arg:
@@ -117,6 +239,8 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         { TCL_ARGV_FUNC,     "-maximum",    copy_arg,   &opt_maximum,     NULL, NULL },
         // TJV_VALIDATION_OBJECT
         { TCL_ARGV_FUNC,     "-properties", copy_arg,   &opt_properties,  NULL, NULL },
+        // TJV_VALIDATION_ARRAY
+        { TCL_ARGV_FUNC,     "-items",      copy_arg,   &opt_items,       NULL, NULL },
         TCL_ARGV_TABLE_END
     };
 #pragma GCC diagnostic pop
@@ -125,10 +249,12 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         const char *type_name;
         tjv_ValidationElementTypeEx type;
     } type_name_map[] = {
+        { "object",  TJV_VALIDATION_EX_OBJECT  },
+        { "array",   TJV_VALIDATION_EX_ARRAY   },
+        { "list",    TJV_VALIDATION_EX_ARRAY   },
         { "string",  TJV_VALIDATION_EX_STRING  },
         { "integer", TJV_VALIDATION_EX_INTEGER },
         { "json",    TJV_VALIDATION_EX_JSON    },
-        { "object",  TJV_VALIDATION_EX_OBJECT  },
         { "boolean", TJV_VALIDATION_EX_BOOLEAN },
         { "double",  TJV_VALIDATION_EX_DOUBLE  },
         { "email",   TJV_VALIDATION_EX_EMAIL   },
@@ -148,9 +274,28 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     DBG2(printf("parse arguments"));
 
     Tcl_Size temp_objc = objc;
-    if (Tcl_ParseArgsObjv(interp, ArgTable, &temp_objc, objv, NULL) != TCL_OK) {
+    // If last_arg is NULL, then we should not accept anything unknown. Let's pass NULL
+    // in the last argument for this case.
+    if (Tcl_ParseArgsObjv(interp, ArgTable, &temp_objc, objv, (last_arg == NULL ? NULL : &remObjv)) != TCL_OK) {
         DBG2(printf("return: ERROR (failed to parse args)"));
         goto error;
+    }
+
+    // If we need to return the last unknown argument, then check it now.
+    // Also, let's check that we have only one unknown argument.
+    if (remObjv != NULL) {
+        if (temp_objc == 2) {
+            DBG2(printf("found 1 extra argument: [%s]", Tcl_GetString(remObjv[1])));
+            // We may not check if last_arg is NULL. If it is NULL, we will not pass remObjv
+            // to Tcl_ParseArgsObjv() and it will remain as NULL. Therefore, we will not go
+            // into the current condition.
+            *last_arg = remObjv[1];
+        } else if (temp_objc > 2) {
+            DBG2(printf("return: ERROR (%" TCL_SIZE_MODIFIER "d extra argument(s))", temp_objc - 1));
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf("unrecognized argument \"%s\"",
+                Tcl_GetString(remObjv[2])));
+            goto error;
+        }
     }
 
     // Validate parameters
@@ -185,6 +330,8 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         bad_option = "-properties";
     } else if (opt_match == INT2PTR(1)) {
         bad_option = "-match";
+    } else if (opt_items == INT2PTR(1)) {
+        bad_option = "-items";
     }
 
     if (bad_option != NULL) {
@@ -201,12 +348,14 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         bad_option = "-match";
     } else if (opt_pattern != NULL && element_type != TJV_VALIDATION_EX_STRING) {
         bad_option = "-pattern";
-    } else if (opt_properties != NULL && element_type != TJV_VALIDATION_EX_OBJECT) {
+    } else if (opt_properties != NULL && !(element_type == TJV_VALIDATION_EX_OBJECT || element_type == TJV_VALIDATION_EX_JSON)) {
         bad_option = "-properties";
     } else if (opt_minimum != NULL && !(element_type == TJV_VALIDATION_EX_INTEGER || element_type == TJV_VALIDATION_EX_DOUBLE)) {
         bad_option = "-minimum";
     } else if (opt_maximum != NULL && !(element_type == TJV_VALIDATION_EX_INTEGER || element_type == TJV_VALIDATION_EX_DOUBLE)) {
         bad_option = "-maximum";
+    } else if (opt_items != NULL && !(element_type == TJV_VALIDATION_EX_ARRAY || element_type == TJV_VALIDATION_EX_JSON)) {
+        bad_option = "-items";
     }
 
     if (bad_option != NULL) {
@@ -345,64 +494,63 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         }
         break;
     case TJV_VALIDATION_EX_JSON:
+
+        if (opt_items != NULL) {
+
+            if (opt_properties != NULL) {
+                DBG2(printf("return: error (both -items and -properties are defined)"));
+                SetResult("both options -items and -properties are specified,"
+                    " for json format only one of them can be specified");
+                goto error;
+            }
+
+            DBG2(printf("add items format"));
+            if (tjv_ValidationCompileItems(interp, opt_items, &rc->opts.json_type.element) != TCL_OK) {
+                DBG2(printf("return: error (failed to parse items format)"));
+                goto error;
+            }
+
+        } else if (opt_properties != NULL) {
+
+            DBG2(printf("add properties"));
+            if (tjv_ValidationCompileProperties(interp, opt_properties, &rc->opts.json_type.keys_list, &rc->opts.json_type.elements) != TCL_OK) {
+                DBG2(printf("return: error (failed to parse properties)"));
+                goto error;
+            }
+
+        } else {
+            DBG2(printf("items or properties are not specified"));
+        }
+
+        break;
+    case TJV_VALIDATION_EX_ARRAY:
+
+        if (opt_items != NULL) {
+
+            DBG2(printf("add items format"));
+            if (tjv_ValidationCompileItems(interp, opt_items, &rc->opts.array_type.element) != TCL_OK) {
+                DBG2(printf("return: error (failed to parse items format)"));
+                goto error;
+            }
+
+        } else {
+            DBG2(printf("items format is not specified"));
+        }
+
         break;
     case TJV_VALIDATION_EX_OBJECT:
 
         if (opt_properties != NULL) {
 
-            Tcl_Size child_count;
-            if (Tcl_ListObjLength(interp, opt_properties, &child_count) != TCL_OK) {
+            DBG2(printf("add properties"));
+            if (tjv_ValidationCompileProperties(interp, opt_properties, &rc->opts.obj_type.keys_list, &rc->opts.obj_type.elements) != TCL_OK) {
+                DBG2(printf("return: error (failed to parse properties)"));
                 goto error;
-            }
-
-            DBG2(printf("child properties count: %" TCL_SIZE_MODIFIER "d", child_count));
-
-            if (child_count == 0) {
-                goto skipObjectChildren;
-            }
-
-            rc->opts.obj_type.elements = ckalloc(sizeof(tjv_ValidationElement*) * (child_count + 1));
-            memset(rc->opts.obj_type.elements, 0, (sizeof(tjv_ValidationElement*) * (child_count + 1)));
-
-            rc->opts.obj_type.keys_list = Tcl_NewListObj(0, NULL);
-            Tcl_IncrRefCount(rc->opts.obj_type.keys_list);
-
-            for (Tcl_Size i = 0; i < child_count; i++) {
-
-                Tcl_Obj *child_element;
-                Tcl_ListObjIndex(NULL, opt_properties, i, &child_element);
-
-                Tcl_Size child_objc;
-                Tcl_Obj **child_objv;
-                if (Tcl_ListObjGetElements(NULL, child_element, &child_objc, &child_objv) != TCL_OK) {
-                    Tcl_SetObjResult(interp, Tcl_ObjPrintf("object element #%" TCL_SIZE_MODIFIER "d"
-                        " is malformed", i));
-                    goto error;
-                }
-
-                if (child_objc < 1) {
-                    Tcl_SetObjResult(interp, Tcl_ObjPrintf("object element #%" TCL_SIZE_MODIFIER "d"
-                        " is an empty list", i));
-                    goto error;
-                }
-
-                Tcl_ListObjAppendElement(NULL, rc->opts.obj_type.keys_list, child_objv[0]);
-                const char *key_name = Tcl_GetString(child_objv[0]);
-
-                DBG2(printf("parse property: [%s]", key_name));
-                rc->opts.obj_type.elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv);
-                if (rc->opts.obj_type.elements[i] == NULL) {
-                    Tcl_SetObjResult(interp, Tcl_ObjPrintf("%s->%s", key_name, Tcl_GetStringResult(interp)));
-                    goto error;
-                }
-
             }
 
         } else {
             DBG2(printf("no properties are defined"));
         }
-
-skipObjectChildren:
 
         break;
     case TJV_VALIDATION_EX_BOOLEAN:
@@ -441,30 +589,9 @@ error:
     }
 
 done:
-    return rc;
-
-}
-
-tjv_ValidationElement *tjv_ValidationCompileFromObj(Tcl_Interp *interp, Tcl_Obj *scheme) {
-
-    DBG2(printf("enter"));
-
-    Tcl_Obj *objv[5];
-    objv[0] = Tcl_NewStringObj("root", -1);
-    objv[1] = Tcl_NewStringObj("-type", -1);
-    objv[2] = Tcl_NewStringObj("object", -1);
-    objv[3] = Tcl_NewStringObj("-properties", -1);
-    objv[4] = scheme;
-
-    tjv_ValidationElement *rc = tjv_ValidationCompile(interp, 5, objv);
-
-    Tcl_BounceRefCount(objv[0]);
-    Tcl_BounceRefCount(objv[1]);
-    Tcl_BounceRefCount(objv[2]);
-    Tcl_BounceRefCount(objv[3]);
-
-    DBG2(printf("return: %p", (void *)rc));
-
+    if (remObjv != NULL) {
+        ckfree(remObjv);
+    }
     return rc;
 
 }

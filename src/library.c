@@ -13,10 +13,59 @@ static int tjv_HandleCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tc
 
     DBG2(printf("enter: objc: %d", objc));
 
-    UNUSED(clientData);
-    UNUSED(interp);
+    static const char *const commands[] = {
+        "destroy", "validate",
+        NULL
+    };
+
+    enum commands {
+        cmdDestroy, cmdValidate
+    };
+
+    if (objc < 2) {
+wrongArgsNum:
+        Tcl_WrongNumArgs(interp, 1, objv, "validate value ?error_variable?");
+        // Unfortunately, we do not have access to INTERP_ALTERNATE_WRONG_ARGS
+        // from the extension. Let's simulate it.
+        Tcl_AppendPrintfToObj(Tcl_GetObjResult(interp), " or \"%s destroy\"", Tcl_GetString(objv[0]));
+        return TCL_ERROR;
+    }
+
+    int command;
+    if (Tcl_GetIndexFromObj(interp, objv[1], commands, "subcommand", 0, &command) != TCL_OK) {
+        DBG2(printf("return: error (wrong subcommand: [%s])", Tcl_GetString(objv[1])));
+        return TCL_ERROR;
+    }
+
+    tjv_ValidationHandler *h = (tjv_ValidationHandler *)clientData;
+
+    if (command == cmdDestroy) {
+        if (objc != 2) {
+            goto wrongArgsNum;
+        }
+        DBG2(printf("destroy subcommand"));
+        Tcl_SetObjResult(interp, h->cmd_name);
+        Tcl_DeleteCommandFromToken(h->interp, h->cmd_token);
+        goto done;
+    }
+
+    // If we are here, then we are in the validate subcommand. First, check
+    // to see if we have enough arguments.
+    if (objc < 3 || objc > 4) {
+        goto wrongArgsNum;
+    }
+
+    Tcl_Obj *data = objv[2];
+    Tcl_Obj *error_var_name = (objc == 3 ? NULL : objv[3]);
+
+    UNUSED(error_var_name);
+    UNUSED(data);
+
     UNUSED(objc);
     UNUSED(objv);
+
+
+done:
 
     DBG2(printf("return: ok"));
 
@@ -29,9 +78,14 @@ static int tjv_CompileCmd(ClientData clientData, Tcl_Interp *interp, int objc, T
     DBG2(printf("enter: objc: %d", objc));
 
     UNUSED(clientData);
-    CheckArgs(2, 3, 1, "validation_scheme ?variable_name?");
+    if (objc < 3) {
+        Tcl_WrongNumArgs(interp, 1, objv, "-type validation_type ?args? ?variable_name?");
+        return TCL_ERROR;
+    }
 
-    tjv_ValidationElement *root = tjv_ValidationCompileFromObj(interp, objv[1]);
+    Tcl_Obj *trace_variable_name = NULL;
+
+    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, &trace_variable_name);
     if (root == NULL) {
         DBG2(printf("return: TCL_ERROR"));
         return TCL_ERROR;
@@ -52,8 +106,8 @@ static int tjv_CompileCmd(ClientData clientData, Tcl_Interp *interp, int objc, T
 
     DBG2(printf("created command: %s", Tcl_GetString(h->cmd_name)));
 
-    if (objc > 2) {
-        h->trace_var = objv[2];
+    if (trace_variable_name != NULL) {
+        h->trace_var = trace_variable_name;
         Tcl_IncrRefCount(h->trace_var);
         DBG2(printf("bind variable: %s", Tcl_GetString(h->trace_var)));
         Tcl_ObjSetVar2(interp, h->trace_var, NULL, h->cmd_name, 0);

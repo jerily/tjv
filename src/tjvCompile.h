@@ -9,42 +9,46 @@
 #include "common.h"
 
 typedef enum {
+    TJV_VALIDATION_OBJECT,
+    TJV_VALIDATION_ARRAY,
     TJV_VALIDATION_STRING,
     TJV_VALIDATION_INTEGER,
     TJV_VALIDATION_JSON,
-    TJV_VALIDATION_OBJECT,
     TJV_VALIDATION_BOOLEAN,
     TJV_VALIDATION_DOUBLE
 } tjv_ValidationElementType;
 
 typedef enum {
+    TJV_VALIDATION_EX_OBJECT,
+    TJV_VALIDATION_EX_ARRAY,
     TJV_VALIDATION_EX_STRING,
     TJV_VALIDATION_EX_INTEGER,
     TJV_VALIDATION_EX_JSON,
-    TJV_VALIDATION_EX_OBJECT,
     TJV_VALIDATION_EX_BOOLEAN,
     TJV_VALIDATION_EX_DOUBLE,
     TJV_VALIDATION_EX_EMAIL
 } tjv_ValidationElementTypeEx;
 
 #define TJV_VALIDATION_TYPE_FROM_EX(x) ( \
+    (x) == TJV_VALIDATION_EX_OBJECT  ? TJV_VALIDATION_OBJECT  : \
+    (x) == TJV_VALIDATION_EX_ARRAY   ? TJV_VALIDATION_ARRAY   : \
     (x) == TJV_VALIDATION_EX_STRING  ? TJV_VALIDATION_STRING  : \
     (x) == TJV_VALIDATION_EX_INTEGER ? TJV_VALIDATION_INTEGER : \
     (x) == TJV_VALIDATION_EX_JSON    ? TJV_VALIDATION_JSON    : \
-    (x) == TJV_VALIDATION_EX_OBJECT  ? TJV_VALIDATION_OBJECT  : \
     (x) == TJV_VALIDATION_EX_BOOLEAN ? TJV_VALIDATION_BOOLEAN : \
     (x) == TJV_VALIDATION_EX_DOUBLE  ? TJV_VALIDATION_DOUBLE  : \
     (x) == TJV_VALIDATION_EX_EMAIL   ? TJV_VALIDATION_STRING  : \
     -1 )
 
 #define TJV_VALIDATION_EX_TYPE_STR(x) ( \
+    (x) == TJV_VALIDATION_EX_OBJECT  ? "TJV_VALIDATION_EX_OBJECT"  : \
+    (x) == TJV_VALIDATION_EX_ARRAY   ? "TJV_VALIDATION_EX_ARRAY"   : \
     (x) == TJV_VALIDATION_EX_STRING  ? "TJV_VALIDATION_EX_STRING"  : \
     (x) == TJV_VALIDATION_EX_INTEGER ? "TJV_VALIDATION_EX_INTEGER" : \
     (x) == TJV_VALIDATION_EX_JSON    ? "TJV_VALIDATION_EX_JSON"    : \
-    (x) == TJV_VALIDATION_EX_OBJECT  ? "TJV_VALIDATION_EX_OBJECT"  : \
     (x) == TJV_VALIDATION_EX_BOOLEAN ? "TJV_VALIDATION_EX_BOOLEAN" : \
     (x) == TJV_VALIDATION_EX_DOUBLE  ? "TJV_VALIDATION_EX_DOUBLE"  : \
-    (x) == TJV_VALIDATION_EX_EMAIL   ? "TJV_VALIDATION_EX_EMAIL"  : \
+    (x) == TJV_VALIDATION_EX_EMAIL   ? "TJV_VALIDATION_EX_EMAIL"   : \
     "ERROR - UNKNOWN VALIDATION TYPE" )
 
 typedef enum {
@@ -58,6 +62,7 @@ typedef struct tjv_ValidationElement tjv_ValidationElement;
 struct tjv_ValidationElement {
     // Common options
     tjv_ValidationElementType type;
+    tjv_ValidationElementTypeEx type_ex;
     int is_required;
     int is_nullable;
     Tcl_Obj *command;
@@ -89,6 +94,16 @@ struct tjv_ValidationElement {
             double max_value;
             int is_max_value_defined;
         } double_type;
+        // options for TJV_VALIDATION_ARRAY
+        struct {
+            tjv_ValidationElement *element;
+        } array_type;
+        // options for TJV_VALIDATION_JSON
+        struct {
+            Tcl_Obj *keys_list;
+            tjv_ValidationElement **elements;
+            tjv_ValidationElement *element;
+        } json_type;
     } opts;
 
 };
@@ -100,8 +115,7 @@ extern "C" {
 
 void tjv_ValidationCompileInit(void);
 void tjv_ValidationElementFree(tjv_ValidationElement *ve);
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[]);
-tjv_ValidationElement *tjv_ValidationCompileFromObj(Tcl_Interp *interp, Tcl_Obj *scheme);
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **last_arg);
 
 #ifdef __cplusplus
 }
