@@ -127,6 +127,8 @@ void tjv_ValidationCompileInit(void);
 void tjv_ValidationElementFree(tjv_ValidationElement *ve);
 tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **last_arg);
 
+const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex);
+
 #ifdef __cplusplus
 }
 #endif

@@ -95,7 +95,7 @@ static void tjv_ValidateTclInteger(Tcl_Obj *data, Tcl_Size index, tjv_Validation
 
     Tcl_WideInt val;
     if (Tcl_GetWideIntFromObj(NULL, data, &val) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, "integer", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -126,7 +126,7 @@ static void tjv_ValidateTclDouble(Tcl_Obj *data, Tcl_Size index, tjv_ValidationE
 
     double val;
     if (Tcl_GetDoubleFromObj(NULL, data, &val) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, "double", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -153,7 +153,7 @@ static void tjv_ValidateTclBoolean(Tcl_Obj *data, Tcl_Size index, tjv_Validation
 
     int val;
     if (Tcl_GetBooleanFromObj(NULL, data, &val) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, "boolean", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -184,15 +184,12 @@ static void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_ValidationE
     case TJV_STRING_MATCHING_REGEXP:
 
         if (Tcl_RegExpExecObj(NULL, ve->opts.str_type.regexp, data, 0, 0, 0) != 1) {
-            switch (ve->type_ex) {
-            case TJV_VALIDATION_EX_EMAIL:
-                tjv_MessageGenerateType(ve->path, index, "email", error_message_ptr, error_details_ptr);
-                break;
-            default:
+            if (ve->type_ex == TJV_VALIDATION_EX_STRING) {
                 tjv_MessageGenerateValue(ve->path, index,
                     Tcl_ObjPrintf("value does not match the specified regexp pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
                     error_message_ptr, error_details_ptr);
-                break;
+            } else {
+                tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
             }
         }
 

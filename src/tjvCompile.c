@@ -21,6 +21,28 @@ static Tcl_ThreadDataKey dataKey;
 static int tjv_ValidationCompile_initialized = 0;
 static Tcl_Mutex tjv_ValidationCompile_initialize_mx;
 
+const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex) {
+    switch (type_ex) {
+    case TJV_VALIDATION_EX_OBJECT:
+        return "object";
+    case TJV_VALIDATION_EX_ARRAY:
+        return "array";
+    case TJV_VALIDATION_EX_STRING:
+        return "string";
+    case TJV_VALIDATION_EX_INTEGER:
+        return "integer";
+    case TJV_VALIDATION_EX_JSON:
+        return "json";
+    case TJV_VALIDATION_EX_BOOLEAN:
+        return "boolean";
+    case TJV_VALIDATION_EX_DOUBLE:
+        return "double";
+    case TJV_VALIDATION_EX_EMAIL:
+        return "email";
+    }
+    return NULL;
+}
+
 static tjv_ValidationElement *tjv_ValidationElementAlloc(tjv_ValidationElementTypeEx type) {
 
     tjv_ValidationElement *rc = ckalloc(sizeof(tjv_ValidationElement));

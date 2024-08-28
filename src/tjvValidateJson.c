@@ -22,7 +22,7 @@ static void tjv_ValidateJsonObject(const cJSON *json, Tcl_Size index, tjv_Valida
 
     // Check if data is valid object
     if (!cJSON_IsObject(json)) {
-        tjv_MessageGenerateType(ve->path, index, "object", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -72,7 +72,7 @@ static void tjv_ValidateJsonArray(const cJSON *json, Tcl_Size index, tjv_Validat
     }
 
     if (!cJSON_IsArray(json)) {
-        tjv_MessageGenerateType(ve->path, index, "array", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -108,7 +108,7 @@ static void tjv_ValidateJsonInteger(const cJSON *json, Tcl_Size index, tjv_Valid
 
     if (!cJSON_IsNumber(json)) {
 wrongFormat:
-        tjv_MessageGenerateType(ve->path, index, "integer", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -149,7 +149,7 @@ static void tjv_ValidateJsonDouble(const cJSON *json, Tcl_Size index, tjv_Valida
     }
 
     if (!cJSON_IsNumber(json)) {
-        tjv_MessageGenerateType(ve->path, index, "double", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -182,7 +182,7 @@ static void tjv_ValidateJsonBoolean(const cJSON *json, Tcl_Size index, tjv_Valid
     }
 
     if (!cJSON_IsBool(json)) {
-        tjv_MessageGenerateType(ve->path, index, "boolean", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -201,7 +201,7 @@ static void tjv_ValidateJsonString(const cJSON *json, Tcl_Size index, tjv_Valida
     }
 
     if (!cJSON_IsString(json)) {
-        tjv_MessageGenerateType(ve->path, index, "string", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -226,9 +226,13 @@ static void tjv_ValidateJsonString(const cJSON *json, Tcl_Size index, tjv_Valida
     case TJV_STRING_MATCHING_REGEXP: ; // empty statement
 
         if (Tcl_RegExpExec(NULL, ve->opts.str_type.regexp, val, 0) != 1) {
-            tjv_MessageGenerateValue(ve->path, index,
-                Tcl_ObjPrintf("value does not match the specified regexp pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
-                error_message_ptr, error_details_ptr);
+            if (ve->type_ex == TJV_VALIDATION_EX_STRING) {
+                tjv_MessageGenerateValue(ve->path, index,
+                    Tcl_ObjPrintf("value does not match the specified regexp pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
+                    error_message_ptr, error_details_ptr);
+            } else {
+                tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
+            }
         }
 
         break;
