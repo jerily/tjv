@@ -21,9 +21,6 @@ static Tcl_ThreadDataKey dataKey;
 static int tjv_ValidationCompile_initialized = 0;
 static Tcl_Mutex tjv_ValidationCompile_initialize_mx;
 
-// Forward declarations
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **last_arg);
-
 static tjv_ValidationElement *tjv_ValidationElementAlloc(tjv_ValidationElementTypeEx type) {
 
     tjv_ValidationElement *rc = ckalloc(sizeof(tjv_ValidationElement));
@@ -43,6 +40,15 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
 
     if (ve->command != NULL) {
         Tcl_DecrRefCount(ve->command);
+    }
+    if (ve->key != NULL) {
+        Tcl_DecrRefCount(ve->key);
+    }
+    if (ve->path != NULL) {
+        Tcl_DecrRefCount(ve->path);
+    }
+    if (ve->outkey != NULL) {
+        Tcl_DecrRefCount(ve->outkey);
     }
 
     switch (ve->type) {
@@ -83,7 +89,7 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
 
 }
 
-static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_ValidationElement **element) {
+static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_ValidationElement *ve) {
 
     DBG2(printf("enter"));
 
@@ -111,10 +117,10 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
     // for errors here.
     Tcl_ListObjGetElements(NULL, items_format, &items_objc, &items_objv);
 
-    *element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL);
+    ve->opts.array_type.element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL, NULL);
     Tcl_BounceRefCount(items_format);
 
-    if (*element == NULL) {
+    if (ve->opts.array_type.element == NULL) {
         DBG2(printf("return: error (failed to items format)"));
         return TCL_ERROR;
     }
@@ -125,7 +131,7 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
 
 }
 
-static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, Tcl_Obj **keys_list_ptr, tjv_ValidationElement ***elements_ptr) {
+static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, tjv_ValidationElement *ve) {
 
     DBG2(printf("enter"));
 
@@ -143,12 +149,12 @@ static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, Tc
 
     tjv_ValidationElement **elements = ckalloc(sizeof(tjv_ValidationElement*) * (child_count + 1));
     memset(elements, 0, (sizeof(tjv_ValidationElement*) * (child_count + 1)));
-    *elements_ptr = elements;
+    ve->opts.obj_type.elements = elements;
 
 
     Tcl_Obj *keys_list = Tcl_NewListObj(0, NULL);
     Tcl_IncrRefCount(keys_list);
-    *keys_list_ptr = keys_list;
+    ve->opts.obj_type.keys_list = keys_list;
 
     for (Tcl_Size i = 0; i < child_count; i++) {
 
@@ -175,7 +181,7 @@ static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, Tc
         const char *key_name = Tcl_GetString(child_objv[0]);
 
         DBG2(printf("parse property: [%s]", key_name));
-        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, NULL);
+        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, ve->path, NULL);
         if (elements[i] == NULL) {
 
             DBG2(printf("return: error (failed to parse element #%" TCL_SIZE_MODIFIER "d [%s]: %s",
@@ -186,6 +192,10 @@ static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, Tc
 
         }
 
+    }
+
+    if (child_count > 0) {
+        Tcl_ListObjGetElements(NULL, keys_list, &ve->opts.obj_type.keys_objc, &ve->opts.obj_type.keys_objv);
     }
 
     DBG2(printf("return: ok"));
@@ -203,7 +213,7 @@ static int copy_arg(void *clientData, Tcl_Obj *objPtr, void *dstPtr) {
     return 1;
 }
 
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **last_arg) {
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **last_arg) {
 
     DBG2(printf("enter: objc: %d", objc));
 
@@ -221,6 +231,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     Tcl_Obj *opt_maximum = NULL;
     Tcl_Obj *opt_properties = NULL;
     Tcl_Obj *opt_items = NULL;
+    Tcl_Obj *opt_outkey = NULL;
 
 #pragma GCC diagnostic push
 // ignore warning for copy_arg:
@@ -231,6 +242,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         { TCL_ARGV_CONSTANT, "-required",   INT2PTR(1), &opt_is_required, NULL, NULL },
         { TCL_ARGV_CONSTANT, "-nullable",   INT2PTR(1), &opt_is_nullable, NULL, NULL },
         { TCL_ARGV_FUNC,     "-command",    copy_arg,   &opt_command,     NULL, NULL },
+        { TCL_ARGV_FUNC,     "-outkey",     copy_arg,   &opt_outkey,      NULL, NULL },
         // TJV_VALIDATION_STRING
         { TCL_ARGV_FUNC,     "-match",      copy_arg,   &opt_match,       NULL, NULL },
         { TCL_ARGV_FUNC,     "-pattern",    copy_arg,   &opt_pattern,     NULL, NULL },
@@ -332,6 +344,8 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         bad_option = "-match";
     } else if (opt_items == INT2PTR(1)) {
         bad_option = "-items";
+    } else if (opt_outkey == INT2PTR(1)) {
+        bad_option = "-outkey";
     }
 
     if (bad_option != NULL) {
@@ -392,12 +406,33 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         (opt_is_nullable ? "yes" : "no"), (opt_command == NULL ? "no" : "yes")));
 
     rc = tjv_ValidationElementAlloc(element_type);
+
     rc->is_required = opt_is_required;
     rc->is_nullable = opt_is_nullable;
+
     if (opt_command != NULL) {
         rc->command = opt_command;
         Tcl_IncrRefCount(rc->command);
     }
+
+    if (opt_outkey != NULL) {
+        rc->outkey = opt_outkey;
+        Tcl_IncrRefCount(rc->outkey);
+    }
+
+    if (path == NULL) {
+        rc->key = Tcl_NewStringObj("", -1);
+        rc->path = rc->key;
+    } else {
+        rc->key = objv[0];
+        rc->path = Tcl_DuplicateObj(path);
+        Tcl_AppendToObj(rc->path, ".", 1);
+        Tcl_AppendObjToObj(rc->path, rc->key);
+    }
+    Tcl_IncrRefCount(rc->key);
+    Tcl_IncrRefCount(rc->path);
+
+    DBG2(printf("key: [%s] path: [%s]", Tcl_GetString(rc->key), Tcl_GetString(rc->path)));
 
     ThreadSpecificData *tsdPtr;
 
@@ -448,7 +483,11 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
             // as long as the internal representation of bound Tcl object
             // is not changed.
             //
-            // For glob and list maching types, we can safely use the original pattern.
+            // For the list type, we split the list and it should not be modified
+            // so as not to invalidate the split form. Thus, we make a copy of
+            // the pattern also.
+            //
+            // For glob type, we can safely use the original pattern.
 
             if (rc->opts.str_type.match == TJV_STRING_MATCHING_REGEXP) {
 
@@ -457,6 +496,16 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
                 rc->opts.str_type.regexp = Tcl_GetRegExpFromObj(interp, rc->opts.str_type.pattern, 0);
                 if (rc->opts.str_type.regexp == NULL) {
                     DBG2(printf("return: ERROR (could not compile regexp [%s])",
+                        Tcl_GetString(rc->opts.str_type.pattern)));
+                    goto error;
+                }
+
+            } else if (rc->opts.str_type.match == TJV_STRING_MATCHING_LIST) {
+
+                rc->opts.str_type.pattern = Tcl_DuplicateObj(opt_pattern);
+                Tcl_IncrRefCount(rc->opts.str_type.pattern);
+                if (Tcl_ListObjGetElements(interp, rc->opts.str_type.pattern, &rc->opts.str_type.pattern_objc, &rc->opts.str_type.pattern_objv) != TCL_OK) {
+                    DBG2(printf("return: ERROR (not a list [%s])",
                         Tcl_GetString(rc->opts.str_type.pattern)));
                     goto error;
                 }
@@ -505,18 +554,22 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
             }
 
             DBG2(printf("add items format"));
-            if (tjv_ValidationCompileItems(interp, opt_items, &rc->opts.json_type.element) != TCL_OK) {
+            if (tjv_ValidationCompileItems(interp, opt_items, rc) != TCL_OK) {
                 DBG2(printf("return: error (failed to parse items format)"));
                 goto error;
             }
 
+            rc->json_type = TJV_JSON_TYPE_ARRAY;
+
         } else if (opt_properties != NULL) {
 
             DBG2(printf("add properties"));
-            if (tjv_ValidationCompileProperties(interp, opt_properties, &rc->opts.json_type.keys_list, &rc->opts.json_type.elements) != TCL_OK) {
+            if (tjv_ValidationCompileProperties(interp, opt_properties, rc) != TCL_OK) {
                 DBG2(printf("return: error (failed to parse properties)"));
                 goto error;
             }
+
+            rc->json_type = TJV_JSON_TYPE_OBJECT;
 
         } else {
             DBG2(printf("items or properties are not specified"));
@@ -528,7 +581,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         if (opt_items != NULL) {
 
             DBG2(printf("add items format"));
-            if (tjv_ValidationCompileItems(interp, opt_items, &rc->opts.array_type.element) != TCL_OK) {
+            if (tjv_ValidationCompileItems(interp, opt_items, rc) != TCL_OK) {
                 DBG2(printf("return: error (failed to parse items format)"));
                 goto error;
             }
@@ -543,7 +596,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         if (opt_properties != NULL) {
 
             DBG2(printf("add properties"));
-            if (tjv_ValidationCompileProperties(interp, opt_properties, &rc->opts.obj_type.keys_list, &rc->opts.obj_type.elements) != TCL_OK) {
+            if (tjv_ValidationCompileProperties(interp, opt_properties, rc) != TCL_OK) {
                 DBG2(printf("return: error (failed to parse properties)"));
                 goto error;
             }

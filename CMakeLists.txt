@@ -70,8 +70,12 @@ add_library(tjv SHARED
     src/library.h
     src/tjvCompile.c
     src/tjvCompile.h
-    src/tjvValidate.c
-    src/tjvValidate.h
+    src/tjvValidateTcl.c
+    src/tjvValidateTcl.h
+    src/tjvValidateJson.c
+    src/tjvValidateJson.h
+    src/tjvMessage.c
+    src/tjvMessage.h
 )
 set_target_properties(tjv PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

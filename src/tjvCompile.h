@@ -57,6 +57,12 @@ typedef enum {
     TJV_STRING_MATCHING_LIST
 } tjv_ValidationStringMatchingType;
 
+typedef enum {
+    TJV_JSON_TYPE_NONE,
+    TJV_JSON_TYPE_OBJECT,
+    TJV_JSON_TYPE_ARRAY
+} tjv_ValidationJsonType;
+
 typedef struct tjv_ValidationElement tjv_ValidationElement;
 
 struct tjv_ValidationElement {
@@ -66,14 +72,21 @@ struct tjv_ValidationElement {
     int is_required;
     int is_nullable;
     Tcl_Obj *command;
+    Tcl_Obj *key;
+    Tcl_Obj *path;
+    Tcl_Obj *outkey;
 
     // Type-specific options
+    tjv_ValidationJsonType json_type;
     union {
         // options for TJV_VALIDATION_STRING
         struct {
             tjv_ValidationStringMatchingType match;
             Tcl_Obj *pattern;
             Tcl_RegExp regexp;
+            // cache for faster access
+            Tcl_Size pattern_objc;
+            Tcl_Obj **pattern_objv;
         } str_type;
         // options for TJV_VALIDATION_INTEGER
         struct {
@@ -82,10 +95,13 @@ struct tjv_ValidationElement {
             Tcl_WideInt max_value;
             int is_max_value_defined;
         } int_type;
-        // options for TJV_VALIDATION_OBJECT
+        // options for TJV_VALIDATION_OBJECT and TJV_VALIDATION_JSON
         struct {
             Tcl_Obj *keys_list;
             tjv_ValidationElement **elements;
+            // cache for faster access
+            Tcl_Size keys_objc;
+            Tcl_Obj **keys_objv;
         } obj_type;
         // options for TJV_VALIDATION_DOUBLE
         struct {
@@ -94,16 +110,10 @@ struct tjv_ValidationElement {
             double max_value;
             int is_max_value_defined;
         } double_type;
-        // options for TJV_VALIDATION_ARRAY
+        // options for TJV_VALIDATION_ARRAY and TJV_VALIDATION_JSON
         struct {
             tjv_ValidationElement *element;
         } array_type;
-        // options for TJV_VALIDATION_JSON
-        struct {
-            Tcl_Obj *keys_list;
-            tjv_ValidationElement **elements;
-            tjv_ValidationElement *element;
-        } json_type;
     } opts;
 
 };
@@ -115,7 +125,7 @@ extern "C" {
 
 void tjv_ValidationCompileInit(void);
 void tjv_ValidationElementFree(tjv_ValidationElement *ve);
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **last_arg);
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **last_arg);
 
 #ifdef __cplusplus
 }

@@ -8,6 +8,8 @@
 
 #include "common.h"
 #include "tjvCompile.h"
+#include "tjvMessage.h"
+#include "tjvValidateTcl.h"
 
 typedef struct {
     Tcl_Interp *interp;

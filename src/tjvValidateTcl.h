@@ -3,8 +3,8 @@
  * SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
  * SPDX-License-Identifier: MIT.
  */
-#ifndef TJV_VALIDATE_H
-#define TJV_VALIDATE_H
+#ifndef TJV_VALIDATETCL_H
+#define TJV_VALIDATETCL_H
 
 #include "common.h"
 #include "tjvCompile.h"
@@ -13,8 +13,10 @@
 extern "C" {
 #endif
 
+void tjv_ValidateTcl(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // TJV_VALIDATE_H
+#endif // TJV_VALIDATETCL_H

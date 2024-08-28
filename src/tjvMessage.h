@@ -1,0 +1,42 @@
+/**
+ * Copyright Jerily LTD. All Rights Reserved.
+ * SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+ * SPDX-License-Identifier: MIT.
+ */
+#ifndef TJV_MESSAGE_H
+#define TJV_MESSAGE_H
+
+#include "common.h"
+
+typedef enum {
+    TJV_MSG_KEYWORD_TYPE,
+    TJV_MSG_KEYWORD_REQUIRED,
+    TJV_MSG_KEYWORD_VALUE
+} tjv_MessageErrorKeywordType;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void tjv_MessageInit(void);
+
+Tcl_Obj *tjv_MessageCombineDetails(Tcl_Obj *error_message, Tcl_Obj *error_details);
+Tcl_Obj *tjv_MessageCombine(Tcl_Obj *error_message);
+
+void tjv_MessageGenerate(tjv_MessageErrorKeywordType keyword_type, Tcl_Obj *path, Tcl_Size index, Tcl_Obj *message,
+    Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr);
+
+void tjv_MessageGenerateRequired(Tcl_Obj *path, Tcl_Size index, Tcl_Obj *required_key,
+    Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr);
+
+void tjv_MessageGenerateType(Tcl_Obj *path, Tcl_Size index, const char *required_type,
+    Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr);
+
+void tjv_MessageGenerateValue(Tcl_Obj *path, Tcl_Size index, Tcl_Obj *message,
+    Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // TJV_MESSAGE_H

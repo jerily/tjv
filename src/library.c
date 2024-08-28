@@ -57,13 +57,32 @@ wrongArgsNum:
 
     Tcl_Obj *data = objv[2];
     Tcl_Obj *error_var_name = (objc == 3 ? NULL : objv[3]);
+    DBG2(printf("error variable: [%s]", (error_var_name == NULL ? "<none>" : Tcl_GetString(error_var_name))));
 
-    UNUSED(error_var_name);
-    UNUSED(data);
+    Tcl_Obj *error_message = NULL;
+    Tcl_Obj *error_details = NULL;
 
-    UNUSED(objc);
-    UNUSED(objv);
+    tjv_ValidateTcl(data, -1, h->root, &error_message, &error_details);
 
+    // Return ok if we don't have errors
+    if (error_message == NULL) {
+        Tcl_SetObjResult(interp, Tcl_NewBooleanObj(1));
+        goto done;
+    }
+
+    // If we don't have output variable, then return a message and TCL_ERROR
+    if (error_var_name == NULL) {
+        Tcl_SetObjResult(interp, tjv_MessageCombine(error_message));
+        Tcl_BounceRefCount(error_details);
+        DBG2(printf("return: TCL_ERROR"));
+        return TCL_ERROR;
+    }
+
+    // Generate the error variable and return 0
+    Tcl_ObjSetVar2(interp, error_var_name, NULL, tjv_MessageCombineDetails(error_message, error_details), 0);
+    Tcl_SetObjResult(interp, Tcl_NewBooleanObj(0));
+    DBG2(printf("return: 0 (with error variable)"));
+    return TCL_OK;
 
 done:
 
@@ -85,7 +104,7 @@ static int tjv_CompileCmd(ClientData clientData, Tcl_Interp *interp, int objc, T
 
     Tcl_Obj *trace_variable_name = NULL;
 
-    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, &trace_variable_name);
+    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, NULL, &trace_variable_name);
     if (root == NULL) {
         DBG2(printf("return: TCL_ERROR"));
         return TCL_ERROR;
@@ -136,6 +155,7 @@ int Tjv_Init(Tcl_Interp *interp) {
     }
 
     tjv_ValidationCompileInit();
+    tjv_MessageInit();
 
     Tcl_CreateNamespace(interp, "::tjv", NULL, NULL);
     Tcl_CreateObjCommand(interp, "::tjv::compile", tjv_CompileCmd, NULL, NULL);
