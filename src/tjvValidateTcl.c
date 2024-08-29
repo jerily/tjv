@@ -13,7 +13,7 @@ static void tjv_ValidateTclObject(Tcl_Obj *data, Tcl_Size index, tjv_ValidationE
     DBG2(printf("enter"));
 
     // Check if data is valid dict
-    int size;
+    Tcl_Size size;
     if (Tcl_DictObjSize(NULL, data, &size) != TCL_OK) {
         tjv_MessageGenerateType(ve->path, index, "object (Tcl dict)", error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
