@@ -1,0 +1,75 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+test tjvValidateJsonString-1.1 {Test without parameters, empty string} -body {
+    tjv::validate -type json -properties {{ foo -type string }} {{ "foo": "" }}
+} -result {}
+
+test tjvValidateJsonString-1.2 {Test without parameters, non-empty string} -body {
+    tjv::validate -type json -properties {{ foo -type string }} {{ "foo": "abcd" }}
+} -result {}
+
+test tjvValidateJsonString-1.3 {Test without parameters, non-string (integer)} -body {
+    tjv::validate -type json -properties {{ foo -type string }} {{ "foo": 123 }}
+} -returnCodes error -result {Error while validating data: .foo should be string}
+
+test tjvValidateJsonString-1.4 {Test without parameters, non-string (boolean)} -body {
+    tjv::validate -type json -properties {{ foo -type string }} {{ "foo": true }}
+} -returnCodes error -result {Error while validating data: .foo should be string}
+
+test tjvValidateJsonString-1.5 {Test without parameters, non-string (null)} -body {
+    tjv::validate -type json -properties {{ foo -type string }} {{ "foo": null }}
+} -returnCodes error -result {Error while validating data: .foo should be string}
+
+test tjvValidateJsonString-1.6 {Test with allowed null, non-string (null)} -body {
+    tjv::validate -type json -properties {{ foo -nullable -type string }} {{ "foo": null }}
+} -result {}
+
+test tjvValidateJsonString-2.1 {Test -match glob, success} -body {
+    tjv::validate -type json -properties {{ foo -type string -match glob -pattern "abc*" }} {{ "foo": "abcd" }}
+} -result {}
+
+test tjvValidateJsonString-2.2 {Test -match glob, failure} -body {
+    tjv::validate -type json -properties {{ foo -type string -match glob -pattern "abc*" }} {{ "foo": "123" }}
+} -returnCodes error -result {Error while validating data: .foo value does not match the specified glob pattern 'abc*'}
+
+
+# Regexp doesn't work for json
+
+if 0 {
+
+test tjvValidateJsonString-3.1 {Test -match regexp, success} -body {
+    tjv::validate -type json -properties {{ foo -type string -match regexp -pattern {^ab.+x$} }} {{ "foo": "abcdx" }}
+} -result {}
+
+test tjvValidateJsonString-3.2 {Test -match regexp, failure} -body {
+    tjv::validate -type json -properties {{ foo -type string -match regexp -pattern {^ab.+x$} }} {{ "foo": "123" }}
+} -returnCodes error -result {Error while validating data: .foo value does not match the specified regexp pattern '^ab.+x$'}
+
+test tjvValidateJsontring-3.3 {Test -match regexp, test pre-compiled regexp, make sure pre-compiled regexp is not broken after error message} -body {
+    set h [tjv::compile -type json -properties {{ foo -type string -match regexp -pattern {^ab.+x$} }}]
+    unset -nocomplain result
+    lappend result [$h validate {{ "foo": "ab123x" }}]
+    lappend result [$h validate {{ "foo": "ab!!!!!x" }}]
+    lappend result [$h validate {{ "foo": "ab!!!!!" }} err]
+    lappend result [$h validate {{ "foo": "abFFFFFx" }}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result err
+} -result {{} {} 0 {}}
+
+test tjvValidateJsonString-4.1 {Test -match list, success} -body {
+    tjv::validate -type json -properties {{ foo -type string -match list -pattern {on off} }} {{ "foo": "on" }}
+} -result {}
+
+test tjvValidateJsonString-4.2 {Test -match list, failure} -body {
+    tjv::validate -type json -properties {{ foo -type string -match list -pattern {on off} }} {{ "foo": "bar" }}
+} -returnCodes error {Error while validating data: .foo value is not the specified list of allowed values 'on off'}
+
+}

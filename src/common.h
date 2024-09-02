@@ -76,6 +76,13 @@ typedef int Tcl_Size;
 #define SetResult(str) Tcl_ResetResult(interp); \
                      Tcl_SetStringObj(Tcl_GetObjResult(interp), (str), -1)
 
+#define ADD_OUTCOME(v) \
+    DBG2(printf("ve->outkey: %p", (void *)ve->outkey)); \
+    DBG2(printf("outcome_ptr: %p", (void *)outcome_ptr)); \
+    if (ve->outkey != NULL && outcome_ptr != NULL) { \
+        Tcl_DictObjPutKeyList(NULL, *outcome_ptr, ve->outkey_objc, ve->outkey_objv, (v)); \
+    }
+
 #ifdef __cplusplus
 extern "C" {
 #endif

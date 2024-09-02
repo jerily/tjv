@@ -9,6 +9,122 @@
 static Tcl_VarTraceProc tjv_HandleVarTraceProc;
 static Tcl_CmdDeleteProc tjv_HandleDeleteProc;
 
+static int tjv_ValidateCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+
+    UNUSED(clientData);
+
+    DBG2(printf("enter: objc: %d", objc));
+
+    if (objc < 3) {
+wrongArgsNum:
+        Tcl_WrongNumArgs(interp, 1, objv, "validation_schema value ?outcome_variable?");
+        DBG2(printf("return: TCL_ERROR (wrong # args)"));
+        return TCL_ERROR;
+    }
+
+    Tcl_Obj *data = NULL;
+    Tcl_Obj *outcome_var_name = NULL;
+    int is_schema_compiled;
+    tjv_ValidationElement *root;
+
+    // Check if the first parameter looks like "::tjv::handle0x*". If this is the case,
+    // then pre-compiled schema should be used.
+
+    if (strncmp(Tcl_GetString(objv[1]), "::tjv::handle0x", 15) == 0) {
+
+        is_schema_compiled = 1;
+
+        DBG2(printf("use pre-compiled schema: [%s]", Tcl_GetString(objv[1])));
+
+        if (objc > 4) {
+            goto wrongArgsNum;
+        }
+
+        // Try to find an existing command and get the root validation item from
+        // its clientData. If the command does not exist, it means that an invalid
+        // pre-compiled validation scheme was specified.
+        Tcl_CmdInfo cmd_info;
+        if (Tcl_GetCommandInfo(interp, Tcl_GetString(objv[1]), &cmd_info) == 0) {
+            DBG2(printf("return: TCL_ERROR (wrong pre-compiled schema [%s])", Tcl_GetString(objv[1])));
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf("pre-compiled validation schema \"%s\" does not exist", Tcl_GetString(objv[1])));
+            return TCL_ERROR;
+        }
+
+        DBG2(printf("tjv_ValidationHandler: %p", (void *)cmd_info.objClientData));
+        root = ((tjv_ValidationHandler *)cmd_info.objClientData)->root;
+        DBG2(printf("tjv_ValidationElement: %p", (void *)root));
+
+        data = objv[2];
+        if (objc == 4) {
+            outcome_var_name = objv[3];
+        }
+
+    } else {
+
+        is_schema_compiled = 0;
+
+        DBG2(printf("use inline validation schema"));
+        root = tjv_ValidationCompile(interp, objc, objv, NULL, &data, &outcome_var_name);
+        if (root == NULL) {
+            DBG2(printf("return: TCL_ERROR"));
+            return TCL_ERROR;
+        }
+
+        if (data == NULL) {
+            DBG2(printf("no data to validate"));
+            tjv_ValidationElementFree(root);
+            goto wrongArgsNum;
+        }
+
+    }
+
+    Tcl_Obj *error_message = NULL;
+    Tcl_Obj *error_details = NULL;
+    Tcl_Obj *outcome = Tcl_NewDictObj();
+
+    tjv_ValidateTcl(data, -1, root, &error_message, &error_details, &outcome);
+
+    if (!is_schema_compiled) {
+        tjv_ValidationElementFree(root);
+    }
+
+    // Return ok if we don't have errors
+    if (error_message == NULL) {
+        if (outcome_var_name == NULL) {
+            Tcl_SetObjResult(interp, outcome);
+        } else {
+            Tcl_ObjSetVar2(interp, outcome_var_name, NULL, outcome, 0);
+            Tcl_SetObjResult(interp, Tcl_NewBooleanObj(1));
+        }
+        goto done;
+    }
+
+    // We don't need the outcome value in case of error
+    Tcl_BounceRefCount(outcome);
+
+    // If we don't have output variable, then return a message and TCL_ERROR
+    if (outcome_var_name == NULL) {
+        Tcl_SetObjResult(interp, tjv_MessageCombine(error_message));
+        Tcl_BounceRefCount(error_details);
+        DBG2(printf("return: TCL_ERROR"));
+        return TCL_ERROR;
+    }
+
+    // Generate the error variable and return 0
+    Tcl_ObjSetVar2(interp, outcome_var_name, NULL, tjv_MessageCombineDetails(error_message, error_details), 0);
+    Tcl_SetObjResult(interp, Tcl_NewBooleanObj(0));
+    DBG2(printf("return: 0 (with error variable)"));
+    return TCL_OK;
+
+done:
+
+    DBG2(printf("return: ok"));
+
+    return TCL_OK;
+
+}
+
+
 static int tjv_HandleCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
 
     DBG2(printf("enter: objc: %d", objc));
@@ -24,10 +140,11 @@ static int tjv_HandleCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tc
 
     if (objc < 2) {
 wrongArgsNum:
-        Tcl_WrongNumArgs(interp, 1, objv, "validate value ?error_variable?");
+        Tcl_WrongNumArgs(interp, 1, objv, "validate value ?outcome_variable?");
         // Unfortunately, we do not have access to INTERP_ALTERNATE_WRONG_ARGS
         // from the extension. Let's simulate it.
         Tcl_AppendPrintfToObj(Tcl_GetObjResult(interp), " or \"%s destroy\"", Tcl_GetString(objv[0]));
+        DBG2(printf("return: TCL_ERROR (wrong # args)"));
         return TCL_ERROR;
     }
 
@@ -56,22 +173,31 @@ wrongArgsNum:
     }
 
     Tcl_Obj *data = objv[2];
-    Tcl_Obj *error_var_name = (objc == 3 ? NULL : objv[3]);
-    DBG2(printf("error variable: [%s]", (error_var_name == NULL ? "<none>" : Tcl_GetString(error_var_name))));
+    Tcl_Obj *outcome_var_name = (objc == 3 ? NULL : objv[3]);
+    DBG2(printf("outcome variable: [%s]", (outcome_var_name == NULL ? "<none>" : Tcl_GetString(outcome_var_name))));
 
     Tcl_Obj *error_message = NULL;
     Tcl_Obj *error_details = NULL;
+    Tcl_Obj *outcome = Tcl_NewDictObj();
 
-    tjv_ValidateTcl(data, -1, h->root, &error_message, &error_details);
+    tjv_ValidateTcl(data, -1, h->root, &error_message, &error_details, &outcome);
 
     // Return ok if we don't have errors
     if (error_message == NULL) {
-        Tcl_SetObjResult(interp, Tcl_NewBooleanObj(1));
+        if (outcome_var_name == NULL) {
+            Tcl_SetObjResult(interp, outcome);
+        } else {
+            Tcl_ObjSetVar2(interp, outcome_var_name, NULL, outcome, 0);
+            Tcl_SetObjResult(interp, Tcl_NewBooleanObj(1));
+        }
         goto done;
     }
 
+    // We don't need the outcome value in case of error
+    Tcl_BounceRefCount(outcome);
+
     // If we don't have output variable, then return a message and TCL_ERROR
-    if (error_var_name == NULL) {
+    if (outcome_var_name == NULL) {
         Tcl_SetObjResult(interp, tjv_MessageCombine(error_message));
         Tcl_BounceRefCount(error_details);
         DBG2(printf("return: TCL_ERROR"));
@@ -79,7 +205,7 @@ wrongArgsNum:
     }
 
     // Generate the error variable and return 0
-    Tcl_ObjSetVar2(interp, error_var_name, NULL, tjv_MessageCombineDetails(error_message, error_details), 0);
+    Tcl_ObjSetVar2(interp, outcome_var_name, NULL, tjv_MessageCombineDetails(error_message, error_details), 0);
     Tcl_SetObjResult(interp, Tcl_NewBooleanObj(0));
     DBG2(printf("return: 0 (with error variable)"));
     return TCL_OK;
@@ -104,7 +230,7 @@ static int tjv_CompileCmd(ClientData clientData, Tcl_Interp *interp, int objc, T
 
     Tcl_Obj *trace_variable_name = NULL;
 
-    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, NULL, &trace_variable_name);
+    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, NULL, &trace_variable_name, NULL);
     if (root == NULL) {
         DBG2(printf("return: TCL_ERROR"));
         return TCL_ERROR;
@@ -159,6 +285,7 @@ int Tjv_Init(Tcl_Interp *interp) {
 
     Tcl_CreateNamespace(interp, "::tjv", NULL, NULL);
     Tcl_CreateObjCommand(interp, "::tjv::compile", tjv_CompileCmd, NULL, NULL);
+    Tcl_CreateObjCommand(interp, "::tjv::validate", tjv_ValidateCmd, NULL, NULL);
 
 
     Tcl_RegisterConfig(interp, "tjv", tjv_pkgconfig, "iso8859-1");

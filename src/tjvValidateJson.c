@@ -9,9 +9,11 @@
 #include <cjson/cJSON.h>
 
 // Forward declaration
-static void tjv_ValidateJson(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr);
+static void tjv_ValidateJson(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr);
 
-static void tjv_ValidateJsonObject(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static void tjv_ValidateJsonObject(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+
+    UNUSED(outcome_ptr);
 
     DBG2(printf("enter"));
 
@@ -52,7 +54,7 @@ static void tjv_ValidateJsonObject(const cJSON *json, Tcl_Size index, tjv_Valida
         DBG2(printf("check key: [%s]", Tcl_GetString(element->key)));
 
         // We found a key, let's validate its value.
-        tjv_ValidateJson(val, -1, element, error_message_ptr, error_details_ptr);
+        tjv_ValidateJson(val, -1, element, error_message_ptr, error_details_ptr, outcome_ptr);
 
     }
 
@@ -62,7 +64,9 @@ done:
 
 }
 
-static void tjv_ValidateJsonArray(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static void tjv_ValidateJsonArray(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+
+    UNUSED(outcome_ptr);
 
     DBG2(printf("enter"));
 
@@ -87,7 +91,7 @@ static void tjv_ValidateJsonArray(const cJSON *json, Tcl_Size index, tjv_Validat
     Tcl_Size i = 0;
     cJSON_ArrayForEach(val, json) {
         DBG2(printf("check array element #%" TCL_SIZE_MODIFIER "d", i));
-        tjv_ValidateJson(val, i, ve->opts.array_type.element, error_message_ptr, error_details_ptr);
+        tjv_ValidateJson(val, i, ve->opts.array_type.element, error_message_ptr, error_details_ptr, outcome_ptr);
         i++;
     }
 
@@ -97,7 +101,7 @@ done:
 
 }
 
-static void tjv_ValidateJsonInteger(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static inline void tjv_ValidateJsonInteger(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
@@ -126,20 +130,20 @@ wrongFormat:
         tjv_MessageGenerateValue(ve->path, index,
             Tcl_ObjPrintf("value is less than the minimum %s", buf),
             error_message_ptr, error_details_ptr);
-    }
-
-    if (ve->opts.int_type.is_max_value_defined && json->valueint > ve->opts.int_type.max_value) {
+    } else if (ve->opts.int_type.is_max_value_defined && json->valueint > ve->opts.int_type.max_value) {
         snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d", ve->opts.int_type.max_value);
         tjv_MessageGenerateValue(ve->path, index,
             Tcl_ObjPrintf("value is greater than the maximum %s", buf),
             error_message_ptr, error_details_ptr);
+    } else {
+        ADD_OUTCOME(Tcl_NewWideIntObj(json->valueint));
     }
 
     DBG2(printf("return: ok"));
 
 }
 
-static void tjv_ValidateJsonDouble(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static inline void tjv_ValidateJsonDouble(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
@@ -160,19 +164,19 @@ static void tjv_ValidateJsonDouble(const cJSON *json, Tcl_Size index, tjv_Valida
         tjv_MessageGenerateValue(ve->path, index,
             Tcl_ObjPrintf("value is less than the minimum %f", ve->opts.double_type.min_value),
             error_message_ptr, error_details_ptr);
-    }
-
-    if (ve->opts.double_type.is_max_value_defined && val > ve->opts.double_type.max_value) {
+    } else if (ve->opts.double_type.is_max_value_defined && val > ve->opts.double_type.max_value) {
         tjv_MessageGenerateValue(ve->path, index,
             Tcl_ObjPrintf("value is greater than the maximum %f", ve->opts.double_type.max_value),
             error_message_ptr, error_details_ptr);
+    } else {
+        ADD_OUTCOME(Tcl_NewDoubleObj(val));
     }
 
     DBG2(printf("return: ok"));
 
 }
 
-static void tjv_ValidateJsonBoolean(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static inline void tjv_ValidateJsonBoolean(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
@@ -187,11 +191,13 @@ static void tjv_ValidateJsonBoolean(const cJSON *json, Tcl_Size index, tjv_Valid
         return;
     }
 
+    ADD_OUTCOME(Tcl_NewBooleanObj(cJSON_IsTrue(json) ? 1 : 0));
+
     DBG2(printf("return: ok"));
 
 }
 
-static void tjv_ValidateJsonString(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static inline void tjv_ValidateJsonString(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
@@ -212,80 +218,96 @@ static void tjv_ValidateJsonString(const cJSON *json, Tcl_Size index, tjv_Valida
     }
 
     const char *val = cJSON_GetStringValue(json);
+    DBG2(printf("string to validate: [%s]", val));
 
     switch (ve->opts.str_type.match) {
     case TJV_STRING_MATCHING_GLOB:
 
-        if (Tcl_StringMatch(val, Tcl_GetString(ve->opts.str_type.pattern)) != 1) {
-            tjv_MessageGenerateValue(ve->path, index,
-                Tcl_ObjPrintf("value does not match the specified glob pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
-                error_message_ptr, error_details_ptr);
+        if (Tcl_StringMatch(val, Tcl_GetString(ve->opts.str_type.pattern)) == 1) {
+            goto done;
         }
 
+        tjv_MessageGenerateValue(ve->path, index,
+            Tcl_ObjPrintf("value does not match the specified glob pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
+            error_message_ptr, error_details_ptr);
+        goto error;
+
         break;
+
     case TJV_STRING_MATCHING_REGEXP: ; // empty statement
 
-        if (Tcl_RegExpExec(NULL, ve->opts.str_type.regexp, val, 0) != 1) {
-            if (ve->type_ex == TJV_VALIDATION_EX_STRING) {
-                tjv_MessageGenerateValue(ve->path, index,
-                    Tcl_ObjPrintf("value does not match the specified regexp pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
-                    error_message_ptr, error_details_ptr);
-            } else {
-                tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
-            }
+        if (Tcl_RegExpExec(NULL, ve->opts.str_type.regexp, val, 0) == 1) {
+            goto done;
         }
 
+        if (ve->type_ex == TJV_VALIDATION_EX_STRING) {
+            tjv_MessageGenerateValue(ve->path, index,
+                Tcl_ObjPrintf("value does not match the specified regexp pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
+                error_message_ptr, error_details_ptr);
+        } else {
+            tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
+        }
+        goto error;
+
         break;
+
     case TJV_STRING_MATCHING_LIST: ; // empty statement
 
-        int found = 0;
         for (Tcl_Size i = 0; i < ve->opts.str_type.pattern_objc; i++) {
             if (strcmp(val, Tcl_GetString(ve->opts.str_type.pattern_objv[i])) == 0) {
-                found = 1;
-                break;
+                goto done;
             }
         }
 
-        if (!found) {
-            tjv_MessageGenerateValue(ve->path, index,
-                Tcl_ObjPrintf("value is not the specified list of allowed values '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
-                error_message_ptr, error_details_ptr);
-        }
+        tjv_MessageGenerateValue(ve->path, index,
+            Tcl_ObjPrintf("value is not the specified list of allowed values '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
+            error_message_ptr, error_details_ptr);
+        goto error;
 
         break;
+
     }
 
 done:
 
+    ADD_OUTCOME(Tcl_NewStringObj(val, -1));
     DBG2(printf("return: ok"));
+    return;
+
+error:
+
+    DBG2(printf("return: error"));
+    return;
 
 }
 
-static void tjv_ValidateJson(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+static void tjv_ValidateJson(const cJSON *json, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+
+    UNUSED(outcome_ptr);
 
     DBG2(printf("enter"));
 
     switch (ve->type) {
     case TJV_VALIDATION_STRING:
-        tjv_ValidateJsonString(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonString(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_INTEGER:
-        tjv_ValidateJsonInteger(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonInteger(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_JSON:
         // tjv_ValidateJsonJson(json, index, ve, error_message_ptr, error_details_ptr);
         break;
     case TJV_VALIDATION_OBJECT:
-        tjv_ValidateJsonObject(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonObject(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_ARRAY:
-        tjv_ValidateJsonArray(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonArray(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_BOOLEAN:
-        tjv_ValidateJsonBoolean(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonBoolean(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_DOUBLE:
-        tjv_ValidateJsonDouble(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonDouble(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     }
 
@@ -293,31 +315,35 @@ static void tjv_ValidateJson(const cJSON *json, Tcl_Size index, tjv_ValidationEl
 
 }
 
-void tjv_ValidateTclJson(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr) {
+void tjv_ValidateTclJson(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
-    DBG2(printf("parse json"));
     Tcl_Size length;
     const char *json_string = Tcl_GetStringFromObj(data, &length);
+    DBG2(printf("parse json: [%s]", json_string));
 
     const cJSON *json = cJSON_ParseWithLength(json_string, length);
     if (json == NULL) {
+        DBG2(printf("json parse error near: %s", cJSON_GetErrorPtr()));
+        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
 
     if (ve->json_type == TJV_JSON_TYPE_ARRAY) {
         DBG2(printf("validate json array"));
-        tjv_ValidateJsonArray(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonArray(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
     } else if (ve->json_type == TJV_JSON_TYPE_OBJECT) {
         DBG2(printf("validate json object"));
-        tjv_ValidateJsonObject(json, index, ve, error_message_ptr, error_details_ptr);
+        tjv_ValidateJsonObject(json, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
     } else {
         DBG2(printf("no need to validate json"));
     }
 
     cJSON_Delete((cJSON *)json);
+
+    ADD_OUTCOME(data);
 
     DBG2(printf("return: ok"));
 

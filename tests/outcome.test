@@ -1,0 +1,104 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+test tjvOutcome-1.1.1 {Test a single value, simple key, no outcome variable} -body {
+    tjv::validate -type integer -outkey foo 1
+} -result {foo 1}
+
+test tjvOutcome-1.1.2 {Test a single value, simple key, with outcome variable} -body {
+    unset -nocomplain result
+    lappend result [tjv::validate -type integer -outkey foo 1 outcome]
+    lappend result $outcome
+} -cleanup {
+    unset -nocomplain result outcome
+} -result {1 {foo 1}}
+
+test tjvOutcome-1.2.1 {Test a single value, complex key, no outcome variable} -body {
+    tjv::validate -type integer -outkey "foo bar baz" 1
+} -result {foo {bar {baz 1}}}
+
+test tjvOutcome-1.2.2 {Test a single value, complex key, with outcome variable} -body {
+    unset -nocomplain result
+    lappend result [tjv::validate -type integer -outkey "foo bar baz" 1 outcome]
+    lappend result $outcome
+} -cleanup {
+    unset -nocomplain result outcome
+} -result {1 {foo {bar {baz 1}}}}
+
+test tjvOutcome-2.1 {Test multiple values, tcl only, no outcome variable} -body {
+    tjv::validate -type object -properties {
+        {foo -type object -properties {
+            { bar1 -type integer -outkey "val1" }
+            { bar2 -type boolean -outkey "val2" }
+        }}
+        {baz -type string -outkey "sub val test"}
+    } {
+        foo {
+            bar1 123
+            bar2 yes
+        }
+        baz valbaz
+    }
+} -result {val1 123 val2 1 sub {val {test valbaz}}}
+
+test tjvOutcome-2.1 {Test multiple values, tcl only, with outcome variable} -body {
+    unset -nocomplain result
+    lappend result [tjv::validate -type object -properties {
+        {foo -type object -properties {
+            { bar1 -type integer -outkey "val1" }
+            { bar2 -type boolean -outkey "val2" }
+        }}
+        {baz -type string -outkey "sub val test"}
+    } {
+        foo {
+            bar1 123
+            bar2 yes
+        }
+        baz valbaz
+    } outcome]
+    lappend result $outcome
+} -cleanup {
+    unset -nocomplain result outcome
+} -result {1 {val1 123 val2 1 sub {val {test valbaz}}}}
+
+test tjvOutcome-3.1 {Test multiple values, with json, no outcome variable} -body {
+    tjv::validate -type object -properties {
+        {foo -type json -properties {
+            { bar1 -type integer -outkey "val1" }
+            { bar2 -type boolean -outkey "val2" }
+        }}
+        {baz -type string -outkey "sub val test"}
+    } {
+        foo {{
+            "bar1": 123,
+            "bar2": true
+        }}
+        baz valbaz
+    }
+} -result {val1 123 val2 1 sub {val {test valbaz}}}
+
+test tjvOutcome-3.2 {Test multiple values, with json, with outcome variable} -body {
+    unset -nocomplain result
+    lappend result [tjv::validate -type object -properties {
+        {foo -type json -properties {
+            { bar1 -type integer -outkey "val1" }
+            { bar2 -type boolean -outkey "val2" }
+        }}
+        {baz -type string -outkey "sub val test"}
+    } {
+        foo {{
+            "bar1": 123,
+            "bar2": true
+        }}
+        baz valbaz
+    } outcome]
+    lappend result $outcome
+} -cleanup {
+    unset -nocomplain result outcome
+} -result {1 {val1 123 val2 1 sub {val {test valbaz}}}}

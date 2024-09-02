@@ -75,6 +75,9 @@ struct tjv_ValidationElement {
     Tcl_Obj *key;
     Tcl_Obj *path;
     Tcl_Obj *outkey;
+    // cache for faster access
+    Tcl_Size outkey_objc;
+    Tcl_Obj **outkey_objv;
 
     // Type-specific options
     tjv_ValidationJsonType json_type;
@@ -125,7 +128,7 @@ extern "C" {
 
 void tjv_ValidationCompileInit(void);
 void tjv_ValidationElementFree(tjv_ValidationElement *ve);
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **last_arg);
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **rest_arg1, Tcl_Obj **rest_arg2);
 
 const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex);
 

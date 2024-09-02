@@ -18,8 +18,8 @@ static Tcl_ThreadDataKey dataKey;
 #define TCL_TSD_INIT(keyPtr) \
     (ThreadSpecificData *)Tcl_GetThreadData((keyPtr), sizeof(ThreadSpecificData))
 
-static int tjv_ValidationCompile_initialized = 0;
-static Tcl_Mutex tjv_ValidationCompile_initialize_mx;
+static int tjv_validationcompile_initialized = 0;
+static Tcl_Mutex tjv_validationcompile_initialize_mx;
 
 const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex) {
     switch (type_ex) {
@@ -139,7 +139,7 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
     // for errors here.
     Tcl_ListObjGetElements(NULL, items_format, &items_objc, &items_objv);
 
-    ve->opts.array_type.element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL, NULL);
+    ve->opts.array_type.element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL, NULL, NULL);
     Tcl_BounceRefCount(items_format);
 
     if (ve->opts.array_type.element == NULL) {
@@ -203,7 +203,7 @@ static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, tj
         const char *key_name = Tcl_GetString(child_objv[0]);
 
         DBG2(printf("parse property: [%s]", key_name));
-        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, ve->path, NULL);
+        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, ve->path, NULL, NULL);
         if (elements[i] == NULL) {
 
             DBG2(printf("return: error (failed to parse element #%" TCL_SIZE_MODIFIER "d [%s]: %s",
@@ -235,7 +235,7 @@ static int copy_arg(void *clientData, Tcl_Obj *objPtr, void *dstPtr) {
     return 1;
 }
 
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **last_arg) {
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **rest_arg1, Tcl_Obj **rest_arg2) {
 
     DBG2(printf("enter: objc: %d", objc));
 
@@ -308,26 +308,34 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     DBG2(printf("parse arguments"));
 
     Tcl_Size temp_objc = objc;
-    // If last_arg is NULL, then we should not accept anything unknown. Let's pass NULL
+    // If rest_arg1 is NULL, then we should not accept anything unknown. Let's pass NULL
     // in the last argument for this case.
-    if (Tcl_ParseArgsObjv(interp, ArgTable, &temp_objc, objv, (last_arg == NULL ? NULL : &remObjv)) != TCL_OK) {
+    if (Tcl_ParseArgsObjv(interp, ArgTable, &temp_objc, objv, (rest_arg1 == NULL ? NULL : &remObjv)) != TCL_OK) {
         DBG2(printf("return: ERROR (failed to parse args)"));
         goto error;
+    }
+    if (rest_arg1 != NULL) {
+        DBG2(printf("arguments left: %" TCL_SIZE_MODIFIER "d", temp_objc));
     }
 
     // If we need to return the last unknown argument, then check it now.
     // Also, let's check that we have only one unknown argument.
     if (remObjv != NULL) {
-        if (temp_objc == 2) {
-            DBG2(printf("found 1 extra argument: [%s]", Tcl_GetString(remObjv[1])));
-            // We may not check if last_arg is NULL. If it is NULL, we will not pass remObjv
+        if (temp_objc > 1) {
+            DBG2(printf("found 1st extra argument: [%s]", Tcl_GetString(remObjv[1])));
+            // We may not check if rest_arg1 is NULL. If it is NULL, we will not pass remObjv
             // to Tcl_ParseArgsObjv() and it will remain as NULL. Therefore, we will not go
             // into the current condition.
-            *last_arg = remObjv[1];
+            *rest_arg1 = remObjv[1];
+        }
+        if (temp_objc == 3 && rest_arg2 != NULL) {
+            DBG2(printf("found 2nd extra argument: [%s]", Tcl_GetString(remObjv[2])));
+            *rest_arg2 = remObjv[2];
         } else if (temp_objc > 2) {
-            DBG2(printf("return: ERROR (%" TCL_SIZE_MODIFIER "d extra argument(s))", temp_objc - 1));
+            int extra_arg_idx = (rest_arg2 == NULL ? 2 : 3);
+            DBG2(printf("return: ERROR (%" TCL_SIZE_MODIFIER "d extra argument(s))", temp_objc - extra_arg_idx - 1));
             Tcl_SetObjResult(interp, Tcl_ObjPrintf("unrecognized argument \"%s\"",
-                Tcl_GetString(remObjv[2])));
+                Tcl_GetString(remObjv[extra_arg_idx])));
             goto error;
         }
     }
@@ -380,6 +388,8 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     // Check if the user has specified options that are not supported for
     // the corresponding type.
 
+    // Check if -outkey is specified for object/array types
+
     if (opt_match != NULL && element_type != TJV_VALIDATION_EX_STRING) {
         bad_option = "-match";
     } else if (opt_pattern != NULL && element_type != TJV_VALIDATION_EX_STRING) {
@@ -392,6 +402,8 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         bad_option = "-maximum";
     } else if (opt_items != NULL && !(element_type == TJV_VALIDATION_EX_ARRAY || element_type == TJV_VALIDATION_EX_JSON)) {
         bad_option = "-items";
+    } else if (opt_outkey != NULL && (element_type == TJV_VALIDATION_EX_OBJECT || element_type == TJV_VALIDATION_EX_ARRAY || element_type == TJV_VALIDATION_EX_JSON)) {
+        bad_option = "-outkey";
     }
 
     if (bad_option != NULL) {
@@ -438,8 +450,20 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     }
 
     if (opt_outkey != NULL) {
+
+        DBG2(printf("outkey: [%s]", Tcl_GetString(opt_outkey)));
+
+        if (Tcl_ListObjGetElements(interp, opt_outkey, &rc->outkey_objc, &rc->outkey_objv) != TCL_OK) {
+            DBG2(printf("return: ERROR (-outkey is not a list [%s])",
+                Tcl_GetString(opt_outkey)));
+            goto error;
+        }
+
         rc->outkey = opt_outkey;
         Tcl_IncrRefCount(rc->outkey);
+
+    } else {
+        DBG2(printf("outkey: <none>"));
     }
 
     if (path == NULL) {
@@ -690,14 +714,14 @@ static void tjv_ValidationCompileThreadExitProc(ClientData clientData) {
 
 void tjv_ValidationCompileInit(void) {
 
-    Tcl_MutexLock(&tjv_ValidationCompile_initialize_mx);
+    Tcl_MutexLock(&tjv_validationcompile_initialize_mx);
 
-    if (!tjv_ValidationCompile_initialized) {
+    if (!tjv_validationcompile_initialized) {
         DBG2(printf("enter..."));
         Tcl_CreateThreadExitHandler(tjv_ValidationCompileThreadExitProc, NULL);
-        tjv_ValidationCompile_initialized = 1;
+        tjv_validationcompile_initialized = 1;
         DBG2(printf("return: ok"));
     }
 
-    Tcl_MutexUnlock(&tjv_ValidationCompile_initialize_mx);
+    Tcl_MutexUnlock(&tjv_validationcompile_initialize_mx);
 }
