@@ -14,13 +14,13 @@ static Tcl_ThreadDataKey dataKey;
 static int tjv_validationcompile_initialized = 0;
 static Tcl_Mutex tjv_validationcompile_initialize_mx;
 
-#define TJV_CUSTOM_FORMAT_COUNT 3
+#define TJV_CUSTOM_TYPE_COUNT 3
 
 static const struct {
     tjv_ValidationElementTypeEx type_ex;
     const char *name;
     const char *pattern;
-} tjv_custom_types[TJV_CUSTOM_FORMAT_COUNT] = {
+} tjv_custom_types[TJV_CUSTOM_TYPE_COUNT] = {
     {
         TJV_VALIDATION_EX_EMAIL,
         "email",
@@ -37,13 +37,13 @@ static const struct {
 };
 
 typedef struct ThreadSpecificData {
-    Tcl_Obj *pattern[TJV_CUSTOM_FORMAT_COUNT];
-    Tcl_RegExp regexp[TJV_CUSTOM_FORMAT_COUNT];
+    Tcl_Obj *pattern[TJV_CUSTOM_TYPE_COUNT];
+    Tcl_RegExp regexp[TJV_CUSTOM_TYPE_COUNT];
 } ThreadSpecificData;
 
-static int tjv_GetCustomFormatId(tjv_ValidationElementTypeEx type_ex) {
+static int tjv_GetCustomTypeId(tjv_ValidationElementTypeEx type_ex) {
 
-    for (int i = 0; i < TJV_CUSTOM_FORMAT_COUNT; i++) {
+    for (int i = 0; i < TJV_CUSTOM_TYPE_COUNT; i++) {
         if (tjv_custom_types[i].type_ex == type_ex) {
             return i;
         }
@@ -72,7 +72,7 @@ const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex) {
     case TJV_VALIDATION_EX_EMAIL:
     case TJV_VALIDATION_EX_DURATION:
     case TJV_VALIDATION_EX_URI:
-        return tjv_custom_types[tjv_GetCustomFormatId(type_ex)].name;
+        return tjv_custom_types[tjv_GetCustomTypeId(type_ex)].name;
     }
     return NULL;
 }
@@ -543,7 +543,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     case TJV_VALIDATION_EX_EMAIL:
 
         tsdPtr = TCL_TSD_INIT(&dataKey);
-        int type_id = tjv_GetCustomFormatId(element_type);
+        int type_id = tjv_GetCustomTypeId(element_type);
         if (tsdPtr->pattern[type_id] == NULL) {
             tsdPtr->pattern[type_id] = Tcl_NewStringObj(tjv_custom_types[type_id].pattern, -1);
             Tcl_IncrRefCount(tsdPtr->pattern[type_id]);
@@ -761,7 +761,7 @@ static void tjv_ValidationCompileThreadExitProc(ClientData clientData) {
 
     DBG2(printf("enter..."));
 
-    for (int i = 0; i < TJV_CUSTOM_FORMAT_COUNT; i++) {
+    for (int i = 0; i < TJV_CUSTOM_TYPE_COUNT; i++) {
         if (tsdPtr->pattern[i] != NULL) {
             Tcl_DecrRefCount(tsdPtr->pattern[i]);
             tsdPtr->pattern[i] = NULL;
