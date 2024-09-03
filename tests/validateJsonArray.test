@@ -1,0 +1,46 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateJsonArray-1.1 {Test empty array} -body {
+    tjv::validate -type json -items {-type integer} {[]}
+} -result {}
+
+test tjvValidateJsonArray-1.2 {Test non-empty array} -body {
+    tjv::validate -type json -items {-type integer} {[1,2,3,4]}
+} -result {}
+
+test tjvValidateJsonArray-2.1 {Test nested arrays, correct case} -body {
+    tjv::validate -type json -items {-type array -items {-type integer}} {[[1,2,3,4],[3,4],[],[-1,2,3]]}
+} -result {}
+
+test tjvValidateJsonArray-2.2 {Test nested arrays, incorrect case} -body {
+    tjv::validate -type json -items {-type array -items {-type integer}} {[[1,2,3,4],[3,"foo"],[],[-1,2,true]]}
+} -returnCodes error -result {Error while validating data: [1] should be integer, [2] should be integer}
+
+test tjvValidateJsonArray-3.1 {Test array in object, correct case} -body {
+    tjv::validate -type json -properties {
+        {foo -type array}
+        {bar -type integer}
+   } {{
+       "foo": [1,2,3,4],
+       "bar": 5
+   }}
+} -result {}
+
+test tjvValidateJsonArray-3.2 {Test array in object, incorrect case} -body {
+    tjv::validate -type json -properties {
+        {foo -type array -items {-type boolean}}
+        {bar -type integer}
+   } {{
+       "foo": [true,false,false,4,true],
+       "bar": 7.1
+   }}
+} -returnCodes error -result {Error while validating data: .foo[3] should be boolean, .bar should be integer}

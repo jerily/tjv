@@ -6,13 +6,6 @@
 
 #include "tjvCompile.h"
 
-#define TJV_REGEXP_EMAIL "^[A-Za-z0-9._-]+@[[A-Za-z0-9.-]+$"
-
-typedef struct ThreadSpecificData {
-    Tcl_Obj *email_pattern;
-    Tcl_RegExp email_regexp;
-} ThreadSpecificData;
-
 static Tcl_ThreadDataKey dataKey;
 
 #define TCL_TSD_INIT(keyPtr) \
@@ -20,6 +13,45 @@ static Tcl_ThreadDataKey dataKey;
 
 static int tjv_validationcompile_initialized = 0;
 static Tcl_Mutex tjv_validationcompile_initialize_mx;
+
+#define TJV_CUSTOM_FORMAT_COUNT 3
+
+static const struct {
+    tjv_ValidationElementTypeEx type_ex;
+    const char *name;
+    const char *pattern;
+} tjv_custom_types[TJV_CUSTOM_FORMAT_COUNT] = {
+    {
+        TJV_VALIDATION_EX_EMAIL,
+        "email",
+        "^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+    }, {
+        TJV_VALIDATION_EX_DURATION,
+        "duration",
+        "^P(?!$)((\\d+Y)?(\\d+M)?(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+S)?)?|(\\d+W)?)$"
+    }, {
+        TJV_VALIDATION_EX_URI,
+        "uri",
+        "^(?:[a-z][a-z0-9+\\-.]*:)?(?:\\/?\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)|(?:[a-z0-9\\-._~!$&'\"()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\\?(?:[a-z0-9\\-._~!$&'\"()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'\"()*+,;=:@/?]|%[0-9a-f]{2})*)?$"
+    }
+};
+
+typedef struct ThreadSpecificData {
+    Tcl_Obj *pattern[TJV_CUSTOM_FORMAT_COUNT];
+    Tcl_RegExp regexp[TJV_CUSTOM_FORMAT_COUNT];
+} ThreadSpecificData;
+
+static int tjv_GetCustomFormatId(tjv_ValidationElementTypeEx type_ex) {
+
+    for (int i = 0; i < TJV_CUSTOM_FORMAT_COUNT; i++) {
+        if (tjv_custom_types[i].type_ex == type_ex) {
+            return i;
+        }
+    }
+
+    return -1;
+
+}
 
 const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex) {
     switch (type_ex) {
@@ -38,7 +70,9 @@ const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex) {
     case TJV_VALIDATION_EX_DOUBLE:
         return "double";
     case TJV_VALIDATION_EX_EMAIL:
-        return "email";
+    case TJV_VALIDATION_EX_DURATION:
+    case TJV_VALIDATION_EX_URI:
+        return tjv_custom_types[tjv_GetCustomFormatId(type_ex)].name;
     }
     return NULL;
 }
@@ -58,7 +92,7 @@ static tjv_ValidationElement *tjv_ValidationElementAlloc(tjv_ValidationElementTy
 
 void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
 
-    DBG2(printf("enter: ve: %p", (void *)ve));
+    DBG2(printf("enter: ve: %p type: ", (void *)ve));
 
     if (ve->command != NULL) {
         Tcl_DecrRefCount(ve->command);
@@ -69,8 +103,28 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
     if (ve->path != NULL) {
         Tcl_DecrRefCount(ve->path);
     }
+    if (ve->path_parent != NULL) {
+        Tcl_DecrRefCount(ve->path_parent);
+    }
     if (ve->outkey != NULL) {
         Tcl_DecrRefCount(ve->outkey);
+    }
+
+    // A json can be defined as an array or an object. We need to change the ve
+    // type to match the json type to properly release the children.
+    if (ve->type == TJV_VALIDATION_JSON) {
+        switch (ve->json_type) {
+        case TJV_JSON_TYPE_OBJECT:
+            DBG2(printf("set json type as an object"));
+            ve->type = TJV_VALIDATION_OBJECT;
+            break;
+        case TJV_JSON_TYPE_ARRAY:
+            DBG2(printf("set json type as an array"));
+            ve->type = TJV_VALIDATION_ARRAY;
+            break;
+        case TJV_JSON_TYPE_NONE:
+            break;
+        }
     }
 
     switch (ve->type) {
@@ -115,19 +169,13 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
 
     DBG2(printf("enter"));
 
-    // We will use tjv_ValidationCompile() to parse items format and this
-    // function uses Tcl_ParseArgsObjv() to parse parameters.
-    // Tcl_ParseArgsObjv() expects that the first parameter of passed objv
-    // to be a function name. But in this case, the options start from
-    // the first parameter. To successfully parse our parameters, we need
-    // to add a stub as the first parameter. Thus, we have to work with
-    // a duplicated object.
+    // The first element objv for tjv_ValidationCompile() is a key name.
+    // We should use the key name of the array itself for the child
+    // validation schema.
 
     Tcl_Obj *items_format = Tcl_DuplicateObj(data);
-    Tcl_Obj *stub_parameter = Tcl_NewStringObj("items", -1);
-    if (Tcl_ListObjReplace(interp, items_format, 0, 0, 1, &stub_parameter) != TCL_OK) {
+    if (Tcl_ListObjReplace(interp, items_format, 0, 0, 1, &ve->key) != TCL_OK) {
         DBG2(printf("return: error (wrong list format)"));
-        Tcl_BounceRefCount(stub_parameter);
         Tcl_BounceRefCount(items_format);
         return TCL_ERROR;
     }
@@ -139,7 +187,7 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
     // for errors here.
     Tcl_ListObjGetElements(NULL, items_format, &items_objc, &items_objv);
 
-    ve->opts.array_type.element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL, NULL, NULL);
+    ve->opts.array_type.element = tjv_ValidationCompile(interp, items_objc, items_objv, ve->path_parent, NULL, NULL);
     Tcl_BounceRefCount(items_format);
 
     if (ve->opts.array_type.element == NULL) {
@@ -283,15 +331,17 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         const char *type_name;
         tjv_ValidationElementTypeEx type;
     } type_name_map[] = {
-        { "object",  TJV_VALIDATION_EX_OBJECT  },
-        { "array",   TJV_VALIDATION_EX_ARRAY   },
-        { "list",    TJV_VALIDATION_EX_ARRAY   },
-        { "string",  TJV_VALIDATION_EX_STRING  },
-        { "integer", TJV_VALIDATION_EX_INTEGER },
-        { "json",    TJV_VALIDATION_EX_JSON    },
-        { "boolean", TJV_VALIDATION_EX_BOOLEAN },
-        { "double",  TJV_VALIDATION_EX_DOUBLE  },
-        { "email",   TJV_VALIDATION_EX_EMAIL   },
+        { "object",   TJV_VALIDATION_EX_OBJECT   },
+        { "array",    TJV_VALIDATION_EX_ARRAY    },
+        { "list",     TJV_VALIDATION_EX_ARRAY    },
+        { "string",   TJV_VALIDATION_EX_STRING   },
+        { "integer",  TJV_VALIDATION_EX_INTEGER  },
+        { "json",     TJV_VALIDATION_EX_JSON     },
+        { "boolean",  TJV_VALIDATION_EX_BOOLEAN  },
+        { "double",   TJV_VALIDATION_EX_DOUBLE   },
+        { "email",    TJV_VALIDATION_EX_EMAIL    },
+        { "duration", TJV_VALIDATION_EX_DURATION },
+        { "uri",      TJV_VALIDATION_EX_URI      },
         { NULL }
     };
 
@@ -466,6 +516,11 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         DBG2(printf("outkey: <none>"));
     }
 
+    rc->path_parent = path;
+    if (rc->path_parent != NULL) {
+        Tcl_IncrRefCount(rc->path_parent);
+    }
+
     if (path == NULL) {
         rc->key = Tcl_NewStringObj("", -1);
         rc->path = rc->key;
@@ -483,19 +538,22 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     ThreadSpecificData *tsdPtr;
 
     switch (element_type) {
+    case TJV_VALIDATION_EX_URI:
+    case TJV_VALIDATION_EX_DURATION:
     case TJV_VALIDATION_EX_EMAIL:
 
         tsdPtr = TCL_TSD_INIT(&dataKey);
-        if (tsdPtr->email_pattern == NULL) {
-            tsdPtr->email_pattern = Tcl_NewStringObj(TJV_REGEXP_EMAIL, -1);
-            Tcl_IncrRefCount(tsdPtr->email_pattern);
-            tsdPtr->email_regexp = Tcl_GetRegExpFromObj(interp, tsdPtr->email_pattern, 0);
+        int type_id = tjv_GetCustomFormatId(element_type);
+        if (tsdPtr->pattern[type_id] == NULL) {
+            tsdPtr->pattern[type_id] = Tcl_NewStringObj(tjv_custom_types[type_id].pattern, -1);
+            Tcl_IncrRefCount(tsdPtr->pattern[type_id]);
+            tsdPtr->regexp[type_id] = Tcl_GetRegExpFromObj(NULL, tsdPtr->pattern[type_id], TCL_REG_ADVANCED);
         }
 
         rc->opts.str_type.match = TJV_STRING_MATCHING_REGEXP;
-        rc->opts.str_type.pattern = tsdPtr->email_pattern;
+        rc->opts.str_type.pattern = tsdPtr->pattern[type_id];
         Tcl_IncrRefCount(rc->opts.str_type.pattern);
-        rc->opts.str_type.regexp = tsdPtr->email_regexp;
+        rc->opts.str_type.regexp = tsdPtr->regexp[type_id];
 
         break;
     case TJV_VALIDATION_EX_STRING:
@@ -539,7 +597,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
 
                 rc->opts.str_type.pattern = Tcl_DuplicateObj(opt_pattern);
                 Tcl_IncrRefCount(rc->opts.str_type.pattern);
-                rc->opts.str_type.regexp = Tcl_GetRegExpFromObj(interp, rc->opts.str_type.pattern, 0);
+                rc->opts.str_type.regexp = Tcl_GetRegExpFromObj(interp, rc->opts.str_type.pattern, TCL_REG_ADVANCED);
                 if (rc->opts.str_type.regexp == NULL) {
                     DBG2(printf("return: ERROR (could not compile regexp [%s])",
                         Tcl_GetString(rc->opts.str_type.pattern)));
@@ -599,23 +657,23 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
                 goto error;
             }
 
+            rc->json_type = TJV_JSON_TYPE_ARRAY;
+
             DBG2(printf("add items format"));
             if (tjv_ValidationCompileItems(interp, opt_items, rc) != TCL_OK) {
                 DBG2(printf("return: error (failed to parse items format)"));
                 goto error;
             }
 
-            rc->json_type = TJV_JSON_TYPE_ARRAY;
-
         } else if (opt_properties != NULL) {
+
+            rc->json_type = TJV_JSON_TYPE_OBJECT;
 
             DBG2(printf("add properties"));
             if (tjv_ValidationCompileProperties(interp, opt_properties, rc) != TCL_OK) {
                 DBG2(printf("return: error (failed to parse properties)"));
                 goto error;
             }
-
-            rc->json_type = TJV_JSON_TYPE_OBJECT;
 
         } else {
             DBG2(printf("items or properties are not specified"));
@@ -703,9 +761,11 @@ static void tjv_ValidationCompileThreadExitProc(ClientData clientData) {
 
     DBG2(printf("enter..."));
 
-    if (tsdPtr->email_pattern != NULL) {
-        Tcl_DecrRefCount(tsdPtr->email_pattern);
-        tsdPtr->email_pattern = NULL;
+    for (int i = 0; i < TJV_CUSTOM_FORMAT_COUNT; i++) {
+        if (tsdPtr->pattern[i] != NULL) {
+            Tcl_DecrRefCount(tsdPtr->pattern[i]);
+            tsdPtr->pattern[i] = NULL;
+        }
     }
 
     DBG2(printf("return: ok"));

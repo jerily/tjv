@@ -7,6 +7,8 @@ namespace import -force ::tcltest::test
 
 package require tjv
 
+source [file join [file dirname [info script]] common.tcl]
+
 test tjvOutcome-1.1.1 {Test a single value, simple key, no outcome variable} -body {
     tjv::validate -type integer -outkey foo 1
 } -result {foo 1}

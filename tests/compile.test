@@ -7,6 +7,8 @@ namespace import -force ::tcltest::test
 
 package require tjv
 
+source [file join [file dirname [info script]] common.tcl]
+
 test tjvCompile-1.1.1 {Test base syntax, no parameters} -body {
     tjv::compile
 } -cleanup {
@@ -106,7 +108,7 @@ test tjvCompile-1.3.8 {Test base syntax, missing value for -outkey} -body {
 
 test tjvCompile-1.4 {Test base syntax, wrong -type} -body {
     tjv::compile -type foo
-} -returnCodes error -result {bad type "foo": must be object, array, list, string, integer, json, boolean, double, or email}
+} -returnCodes error -result {bad type "foo": must be object, array, list, string, integer, json, boolean, double, email, duration, or uri}
 
 test tjvCompile-2.1 {Test object compilation, no parameters} -body {
     set h [tjv::compile -type object]
@@ -301,7 +303,7 @@ test tjvCompile-4.5.3.1 {Test string compilation, -match regexp} -body {
 } -match glob -result {::tjv::handle0x*}
 
 test tjvCompile-4.5.3.2 {Test string compilation, -match regexp, bad regexp} -body {
-    set h [tjv::compile -type string -pattern "\\(" -match regexp]
+    set h [tjv::compile -type string -pattern "\\\\(" -match regexp]
 } -cleanup {
     catch { $h destroy }
     unset -nocomplain h

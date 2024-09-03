@@ -95,7 +95,7 @@ void tjv_MessageGenerate(tjv_MessageErrorKeywordType keyword_type, Tcl_Obj *path
     Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr)
 {
 
-    DBG2(printf("enter..."));
+    DBG2(printf("enter: path: [%s] index: %" TCL_SIZE_MODIFIER "d", Tcl_GetString(path), index));
 
     Tcl_Obj *error_message = *error_message_ptr;
     if (error_message == NULL) {

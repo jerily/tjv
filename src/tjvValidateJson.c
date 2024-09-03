@@ -236,7 +236,21 @@ static inline void tjv_ValidateJsonString(const cJSON *json, Tcl_Size index, tjv
 
     case TJV_STRING_MATCHING_REGEXP: ; // empty statement
 
-        if (Tcl_RegExpExec(NULL, ve->opts.str_type.regexp, val, 0) == 1) {
+        // We have a char* string, but we can't use Tcl_RegExpExec() here because
+        // this function doesn't take into account regexp flags. The flags variable
+        // there is always 0:
+        //      https://github.com/tcltk/tcl/blob/16b5e6486a8e0e1746e35a0a88125ed72e286cd9/generic/tclRegexp.c#L185-L189
+        // Also, this function does not provide a significant advantage because it
+        // converts the source string from char* to Tcl_DString before matching.
+        //
+        // So we convert our string into a temporary object to be able to use
+        // the modern Tcl_Reg_RExpExecObj() function.
+
+        Tcl_Obj *obj = Tcl_NewStringObj(val, -1);
+        int re_result = Tcl_RegExpExecObj(NULL, ve->opts.str_type.regexp, obj, 0, 0, 0);
+        Tcl_BounceRefCount(obj);
+
+        if (re_result == 1) {
             goto done;
         }
 

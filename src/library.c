@@ -342,6 +342,8 @@ static void tjv_HandleDeleteProc(ClientData clientData) {
 
     tjv_ValidationElementFree(h->root);
 
+    ckfree(h);
+
     DBG2(printf("return: ok"));
 
 }

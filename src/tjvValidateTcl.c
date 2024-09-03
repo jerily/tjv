@@ -181,6 +181,8 @@ static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_Vali
     switch (ve->opts.str_type.match) {
     case TJV_STRING_MATCHING_GLOB:
 
+        DBG2(printf("glob pattern: %s", Tcl_GetString(ve->opts.str_type.pattern)));
+
         if (Tcl_StringMatch(Tcl_GetString(data), Tcl_GetString(ve->opts.str_type.pattern)) == 1) {
             goto done;
         }
@@ -193,6 +195,8 @@ static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_Vali
         break;
 
     case TJV_STRING_MATCHING_REGEXP:
+
+        DBG2(printf("regexp pattern: %s", Tcl_GetString(ve->opts.str_type.pattern)));
 
         if (Tcl_RegExpExecObj(NULL, ve->opts.str_type.regexp, data, 0, 0, 0) == 1) {
             goto done;
@@ -210,6 +214,8 @@ static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_Vali
         break;
 
     case TJV_STRING_MATCHING_LIST: ; // empty statement
+
+        DBG2(printf("valid list: %s", Tcl_GetString(ve->opts.str_type.pattern)));
 
         const char *str = Tcl_GetString(data);
         for (Tcl_Size i = 0; i < ve->opts.str_type.pattern_objc; i++) {

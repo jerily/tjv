@@ -1,0 +1,121 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateTclJson-1.1 {Test without parameters, empty string} -body {
+    tjv::validate -type json ""
+} -returnCodes error -result {Error while validating data: should be json}
+
+test tjvValidateTclJson-1.2 {Test without parameters, incorrect json} -body {
+    tjv::validate -type json "abc"
+} -returnCodes error -result {Error while validating data: should be json}
+
+test tjvValidateTclJson-1.3.1 {Test without parameters, empty json object} -body {
+    tjv::validate -type json {{}}
+} -result {}
+
+test tjvValidateTclJson-1.3.2 {Test without parameters, empty json array} -body {
+    tjv::validate -type json {[]}
+} -result {}
+
+test tjvValidateTclJson-1.4 {Test without parameters, correct json} -body {
+    tjv::validate -type json {{ "foo": "bar", "baz": 1 }}
+} -result {}
+
+test tjvValidateTclJson-2.1 {Test json object, incorrect values} -body {
+    tjv::validate -type json -properties {
+        {foo -type object}
+        {bar -type string -required}
+        {baz -type integer}
+        {qux -type boolean}
+    } {{
+        "foo": 123,
+        "baz": "abc",
+        "qux": 1.1
+    }}
+} -returnCodes error -result {Error while validating data: .foo should be object, should have required property 'bar', .baz should be integer, .qux should be boolean}
+
+test tjvValidateTclJson-2.2 {Test json object, correct values} -body {
+    tjv::validate -type json -properties {
+        {foo -type object}
+        {bar -type string -required}
+        {baz -type integer}
+        {qux -type boolean}
+    } {{
+        "foo": {},
+        "bar": "abc",
+        "baz": -345,
+        "qux": true
+    }}
+} -result {}
+
+# TODO: this test returns incorrect result. The expected result is:
+# Error while validating data: .foo.baz should be integer, .qux[1] should be boolean, .bar[1].baz should be integer
+test tjvValidateTclJson-3.1 {Test json object, nested objects and arrays, incorrect values} -body {
+    tjv::validate -type json -properties {
+        {foo -type object -properties {
+            {bar -type string -required}
+            {baz -type integer}
+        }}
+        {qux -type array -items {-type boolean}}
+        {bar -type array -items {-type object -properties {
+            {bar -type string -required}
+            {baz -type integer}
+        }}}
+    } {{
+        "foo": {
+            "bar": "foo",
+            "baz": true
+        },
+        "qux": [true, 1, true],
+        "bar": [
+            { "bar": "123", "baz": -1 },
+            { "bar": "abc", "baz": "aaaa" }
+        ]
+    }}
+} -returnCodes error -result {Error while validating data: .foo.baz should be integer, .qux[1] should be boolean, .bar.baz should be integer}
+
+test tjvValidateTclJson-3.2 {Test json object, nested objects and arrays, correct values} -body {
+    tjv::validate -type json -properties {
+        {foo -type object -properties {
+            {bar -type string -required}
+            {baz -type integer}
+        }}
+        {qux -type array -items {-type boolean}}
+        {bar -type array -items {-type object -properties {
+            {bar -type string -required}
+            {baz -type integer}
+        }}}
+    } {{
+        "foo": {
+            "bar": "foo",
+            "baz": 123
+        },
+        "qux": [true, false, true],
+        "bar": [
+            { "bar": "123", "baz": -1 },
+            { "bar": "abc", "baz": 123 }
+        ]
+    }}
+} -result {}
+
+test tjvValidateTclJson-4.1 {Test json array, incorrect values} -body {
+    tjv::validate -type json -items {-type integer} {[
+        1, 2, "a", -1000, 40, true, 6, 1.1
+    ]}
+} -returnCodes error -result {Error while validating data: [2] should be integer, [5] should be integer, [7] should be integer}
+
+test tjvValidateTclJson-4.2 {Test json array, correct values} -body {
+    tjv::validate -type json -items {-type integer} {[
+        1, 2, 123, -1000, 40, -500, 6, 1
+    ]}
+} -result {}
+
+

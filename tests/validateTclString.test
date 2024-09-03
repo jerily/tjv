@@ -7,6 +7,8 @@ namespace import -force ::tcltest::test
 
 package require tjv
 
+source [file join [file dirname [info script]] common.tcl]
+
 test tjvValidateTclString-1.1 {Test without parameters, empty string} -body {
     tjv::validate -type string ""
 } -result {}

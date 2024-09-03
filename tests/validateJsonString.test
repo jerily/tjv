@@ -7,6 +7,8 @@ namespace import -force ::tcltest::test
 
 package require tjv
 
+source [file join [file dirname [info script]] common.tcl]
+
 test tjvValidateJsonString-1.1 {Test without parameters, empty string} -body {
     tjv::validate -type json -properties {{ foo -type string }} {{ "foo": "" }}
 } -result {}
@@ -40,10 +42,6 @@ test tjvValidateJsonString-2.2 {Test -match glob, failure} -body {
 } -returnCodes error -result {Error while validating data: .foo value does not match the specified glob pattern 'abc*'}
 
 
-# Regexp doesn't work for json
-
-if 0 {
-
 test tjvValidateJsonString-3.1 {Test -match regexp, success} -body {
     tjv::validate -type json -properties {{ foo -type string -match regexp -pattern {^ab.+x$} }} {{ "foo": "abcdx" }}
 } -result {}
@@ -70,6 +68,4 @@ test tjvValidateJsonString-4.1 {Test -match list, success} -body {
 
 test tjvValidateJsonString-4.2 {Test -match list, failure} -body {
     tjv::validate -type json -properties {{ foo -type string -match list -pattern {on off} }} {{ "foo": "bar" }}
-} -returnCodes error {Error while validating data: .foo value is not the specified list of allowed values 'on off'}
-
-}
+} -returnCodes error -result {Error while validating data: .foo value is not the specified list of allowed values 'on off'}
