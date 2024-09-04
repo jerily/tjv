@@ -266,11 +266,3 @@ Validation error: Error while validating data: .key1 should be integer, should h
 
 TBD
 
-## Copyrights
-
-Copyright (c) 2024 Neofytos Dimitriou (neo@jerily.cy)
-
-## License
-
-`tjv` sources are available under the MIT license.
-
