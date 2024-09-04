@@ -70,7 +70,7 @@ A validation schema definition is a list of parameters. The general format is as
   * **email** - specifies a string representing a valid e-mail address
   * **duration** - specifies a string representing a duration ([RFC3339](https://tools.ietf.org/html/rfc3339#appendix-A))
   * **uri** - specifies a string representing a valid URI ([RFC3986](https://datatracker.ietf.org/doc/html/rfc3986))
-  * **uri-template** - specifies a string representing a valid URI template ([RFC6570][https://datatracker.ietf.org/doc/html/rfc6570])
+  * **uri-template** - specifies a string representing a valid URI template ([RFC6570](https://datatracker.ietf.org/doc/html/rfc6570))
   * **url** - specifies a string representing a valid URL ([RFC1738](https://datatracker.ietf.org/doc/html/rfc1738))
   * **hostname** - specifies a string representing a valid hostname
   * **ipv4** - specifies a string representing a valid IPv4 address
