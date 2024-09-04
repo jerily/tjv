@@ -67,35 +67,35 @@ static void tjv_MessageInitializeThreadData(ThreadSpecificData *tsdPtr) {
 
 }
 
-void tjv_MessageGenerateType(Tcl_Obj *path, Tcl_Size index, const char *required_type,
+void tjv_MessageGenerateType(tjv_ValidationStack *stack, const char *required_type,
     Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr)
 {
-    tjv_MessageGenerate(TJV_MSG_KEYWORD_TYPE, path, index,
+    tjv_MessageGenerate(TJV_MSG_KEYWORD_TYPE, stack,
         Tcl_ObjPrintf("should be %s", required_type),
         error_message_ptr, error_details_ptr);
 }
 
-void tjv_MessageGenerateRequired(Tcl_Obj *path, Tcl_Size index, Tcl_Obj *required_key,
+void tjv_MessageGenerateRequired(tjv_ValidationStack *stack, Tcl_Obj *required_key,
     Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr)
 {
-    tjv_MessageGenerate(TJV_MSG_KEYWORD_REQUIRED, path, index,
+    tjv_MessageGenerate(TJV_MSG_KEYWORD_REQUIRED, stack,
         Tcl_ObjPrintf("should have required property '%s'", Tcl_GetString(required_key)),
         error_message_ptr, error_details_ptr);
 }
 
-void tjv_MessageGenerateValue(Tcl_Obj *path, Tcl_Size index, Tcl_Obj *message,
+void tjv_MessageGenerateValue(tjv_ValidationStack *stack, Tcl_Obj *message,
     Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr)
 {
-    tjv_MessageGenerate(TJV_MSG_KEYWORD_VALUE, path, index,
+    tjv_MessageGenerate(TJV_MSG_KEYWORD_VALUE, stack,
         message,
         error_message_ptr, error_details_ptr);
 }
 
-void tjv_MessageGenerate(tjv_MessageErrorKeywordType keyword_type, Tcl_Obj *path, Tcl_Size index, Tcl_Obj *message,
+void tjv_MessageGenerate(tjv_MessageErrorKeywordType keyword_type, tjv_ValidationStack *stack, Tcl_Obj *message,
     Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr)
 {
 
-    DBG2(printf("enter: path: [%s] index: %" TCL_SIZE_MODIFIER "d", Tcl_GetString(path), index));
+    DBG2(printf("enter..."));
 
     Tcl_Obj *error_message = *error_message_ptr;
     if (error_message == NULL) {
@@ -116,12 +116,37 @@ void tjv_MessageGenerate(tjv_MessageErrorKeywordType keyword_type, Tcl_Obj *path
         tjv_MessageInitializeThreadData(tsdPtr);
     }
 
-    if (index >= 0) {
-        path = Tcl_DuplicateObj(path);
-        char buf[32];
-        snprintf(buf, sizeof(buf), "[%" TCL_SIZE_MODIFIER "d]", index);
-        Tcl_AppendToObj(path, buf, -1);
+    char buf[32];
+    Tcl_Obj *path = Tcl_NewStringObj("", -1);
+    DBG2(printf("init path"));
+
+    for (tjv_ValidationStack *stack_current = stack->head; stack_current != NULL; stack_current = stack_current->next) {
+
+        if (stack_current->key == INT2PTR(1)) {
+            DBG2(printf("key is skipped"));
+            continue;
+        }
+
+        if (stack_current->key != NULL) {
+            Tcl_AppendToObj(path, ".", 1);
+            Tcl_AppendObjToObj(path, stack_current->key);
+            DBG2(printf("add to path: '.%s'", Tcl_GetString(stack_current->key)));
+        } else {
+            DBG2(printf("key is NULL"));
+        }
+
+        if (stack_current->index != -1) {
+            if (stack_current->key == NULL) {
+                Tcl_AppendToObj(path, ".", 1);
+            }
+            snprintf(buf, sizeof(buf), "[%" TCL_SIZE_MODIFIER "d]", stack_current->index);
+            Tcl_AppendToObj(path, buf, -1);
+            DBG2(printf("add to path: '%s'", buf));
+        }
+
     }
+
+    DBG2(printf("path: [%s]", Tcl_GetString(path)));
 
     Tcl_Obj *message_full;
     if (Tcl_GetCharLength(path) > 0) {

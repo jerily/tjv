@@ -64,7 +64,7 @@ wrongArgsNum:
         is_schema_compiled = 0;
 
         DBG2(printf("use inline validation schema"));
-        root = tjv_ValidationCompile(interp, objc, objv, NULL, &data, &outcome_var_name);
+        root = tjv_ValidationCompile(interp, objc, objv, &data, &outcome_var_name);
         if (root == NULL) {
             DBG2(printf("return: TCL_ERROR"));
             return TCL_ERROR;
@@ -82,7 +82,7 @@ wrongArgsNum:
     Tcl_Obj *error_details = NULL;
     Tcl_Obj *outcome = Tcl_NewDictObj();
 
-    tjv_ValidateTcl(data, -1, root, &error_message, &error_details, &outcome);
+    tjv_ValidateTcl(data, NULL, root, &error_message, &error_details, &outcome);
 
     if (!is_schema_compiled) {
         tjv_ValidationElementFree(root);
@@ -180,7 +180,7 @@ wrongArgsNum:
     Tcl_Obj *error_details = NULL;
     Tcl_Obj *outcome = Tcl_NewDictObj();
 
-    tjv_ValidateTcl(data, -1, h->root, &error_message, &error_details, &outcome);
+    tjv_ValidateTcl(data, NULL, h->root, &error_message, &error_details, &outcome);
 
     // Return ok if we don't have errors
     if (error_message == NULL) {
@@ -230,7 +230,7 @@ static int tjv_CompileCmd(ClientData clientData, Tcl_Interp *interp, int objc, T
 
     Tcl_Obj *trace_variable_name = NULL;
 
-    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, NULL, &trace_variable_name, NULL);
+    tjv_ValidationElement *root = tjv_ValidationCompile(interp, objc, objv, &trace_variable_name, NULL);
     if (root == NULL) {
         DBG2(printf("return: TCL_ERROR"));
         return TCL_ERROR;

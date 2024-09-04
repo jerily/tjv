@@ -27,7 +27,7 @@ test tjvValidateTclArray-4.1 {Test list validation, correct} -body {
 
 test tjvValidateTclArray-4.2 {Test list validation, incorrect} -body {
     tjv::validate -type array -items {-type integer} [list 1 2 "a" -500]
-} -returnCodes error -result {Error while validating data: [2] should be integer}
+} -returnCodes error -result {Error while validating data: .[2] should be integer}
 
 test tjvValidateTclArray-5.1 {Test list of objects, correct} -body {
     tjv::validate -type array -items {-type object -properties {
@@ -41,4 +41,4 @@ test tjvValidateTclArray-5.2 {Test list of objects, incorrect} -body {
         {foo -type integer}
         {bar -type string -required}
     }} [list [dict create foo inval bar baz] [dict create foo 400] [dict create]]
-} -returnCodes error -result {Error while validating data: .foo should be integer, [1] should have required property 'bar', [2] should have required property 'bar'}
+} -returnCodes error -result {Error while validating data: .[0].foo should be integer, .[1] should have required property 'bar', .[2] should have required property 'bar'}

@@ -83,6 +83,18 @@ typedef int Tcl_Size;
         Tcl_DictObjPutKeyList(NULL, *outcome_ptr, ve->outkey_objc, ve->outkey_objv, (v)); \
     }
 
+typedef struct tjv_ValidationStack tjv_ValidationStack;
+
+struct tjv_ValidationStack {
+
+    tjv_ValidationStack *head;
+    tjv_ValidationStack *next;
+
+    Tcl_Obj *key;
+    Tcl_Size index;
+
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif

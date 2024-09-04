@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-void tjv_ValidateTcl(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr);
+void tjv_ValidateTcl(Tcl_Obj *data, tjv_ValidationStack *stack_parent, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr);
 
 #ifdef __cplusplus
 }

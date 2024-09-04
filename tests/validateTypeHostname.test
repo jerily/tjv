@@ -1,0 +1,48 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: <none>
+
+test_custom_format hostname {
+    + example.com
+    + subdomain.example.com
+    + my-server.local
+    + web01.internal.net
+    + dev-env.company.org
+    + www1.example.io
+    + testserver123.local
+    + frontend01.example.tech
+    # underscores are not allowed
+    - example_com
+    # hostnames can't start with a hyphen
+    - -example.com
+    # hostnames can't end with a hyphen
+    - example-.com
+    # hostnames can't start with a period
+    - .example.com
+    # consecutive periods are not allowed
+    - example..com
+    # spaces are not allowed
+    - example com
+    # special characters like @ are not allowed
+    - ex@mpl.com
+    # port numbers should not be included in the hostname
+    - example.com:80
+    # underscores are not allowed
+    - exa_mple.com
+    # special characters like ! are not allowed
+    - example!com
+    # slashes are not allowed
+    - example/com
+    # question marks are not allowed
+    - example?.com
+}
+

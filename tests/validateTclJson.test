@@ -56,8 +56,6 @@ test tjvValidateTclJson-2.2 {Test json object, correct values} -body {
     }}
 } -result {}
 
-# TODO: this test returns incorrect result. The expected result is:
-# Error while validating data: .foo.baz should be integer, .qux[1] should be boolean, .bar[1].baz should be integer
 test tjvValidateTclJson-3.1 {Test json object, nested objects and arrays, incorrect values} -body {
     tjv::validate -type json -properties {
         {foo -type object -properties {
@@ -80,7 +78,7 @@ test tjvValidateTclJson-3.1 {Test json object, nested objects and arrays, incorr
             { "bar": "abc", "baz": "aaaa" }
         ]
     }}
-} -returnCodes error -result {Error while validating data: .foo.baz should be integer, .qux[1] should be boolean, .bar.baz should be integer}
+} -returnCodes error -result {Error while validating data: .foo.baz should be integer, .qux[1] should be boolean, .bar[1].baz should be integer}
 
 test tjvValidateTclJson-3.2 {Test json object, nested objects and arrays, correct values} -body {
     tjv::validate -type json -properties {
@@ -110,7 +108,7 @@ test tjvValidateTclJson-4.1 {Test json array, incorrect values} -body {
     tjv::validate -type json -items {-type integer} {[
         1, 2, "a", -1000, 40, true, 6, 1.1
     ]}
-} -returnCodes error -result {Error while validating data: [2] should be integer, [5] should be integer, [7] should be integer}
+} -returnCodes error -result {Error while validating data: .[2] should be integer, .[5] should be integer, .[7] should be integer}
 
 test tjvValidateTclJson-4.2 {Test json array, correct values} -body {
     tjv::validate -type json -items {-type integer} {[

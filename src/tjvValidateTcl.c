@@ -8,14 +8,14 @@
 #include "tjvValidateJson.h"
 #include "tjvMessage.h"
 
-static inline void tjv_ValidateTclObject(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+static inline void tjv_ValidateTclObject(Tcl_Obj *data, tjv_ValidationStack *stack, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
     // Check if data is valid dict
     Tcl_Size size;
     if (Tcl_DictObjSize(NULL, data, &size) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, "object (Tcl dict)", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(stack, "object (Tcl dict)", error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -37,7 +37,7 @@ static inline void tjv_ValidateTclObject(Tcl_Obj *data, Tcl_Size index, tjv_Vali
             // There is no such key. Report an error if it is required.
             if (element->is_required) {
                 DBG2(printf("check key: [%s] - doesn't exist (ERROR)", Tcl_GetString(element->key)));
-                tjv_MessageGenerateRequired(ve->path, index, element->key, error_message_ptr, error_details_ptr);
+                tjv_MessageGenerateRequired(stack, element->key, error_message_ptr, error_details_ptr);
             } else {
                 DBG2(printf("check key: [%s] - doesn't exist (OK)", Tcl_GetString(element->key)));
             }
@@ -47,7 +47,7 @@ static inline void tjv_ValidateTclObject(Tcl_Obj *data, Tcl_Size index, tjv_Vali
         DBG2(printf("check key: [%s]", Tcl_GetString(element->key)));
 
         // We found a key, let's validate its value.
-        tjv_ValidateTcl(val, -1, element, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTcl(val, stack, element, error_message_ptr, error_details_ptr, outcome_ptr);
 
     }
 
@@ -59,7 +59,7 @@ done:
 
 }
 
-static inline void tjv_ValidateTclArray(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+static inline void tjv_ValidateTclArray(Tcl_Obj *data, tjv_ValidationStack *stack, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
@@ -67,7 +67,7 @@ static inline void tjv_ValidateTclArray(Tcl_Obj *data, Tcl_Size index, tjv_Valid
     Tcl_Size items_objc;
     Tcl_Obj **items_objv;
     if (Tcl_ListObjGetElements(NULL, data, &items_objc, &items_objv) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, "array (Tcl list)", error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(stack, "array (Tcl list)", error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -78,11 +78,11 @@ static inline void tjv_ValidateTclArray(Tcl_Obj *data, Tcl_Size index, tjv_Valid
     }
 
     // Go throught all keys
-    for (Tcl_Size i = 0; i < items_objc; i++) {
+    for (stack->index = 0; stack->index < items_objc; stack->index++) {
 
-        DBG2(printf("check array element #%" TCL_SIZE_MODIFIER "d", i));
+        DBG2(printf("check array element #%" TCL_SIZE_MODIFIER "d", stack->index));
 
-        tjv_ValidateTcl(items_objv[i], i, ve->opts.array_type.element, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTcl(items_objv[stack->index], stack, ve->opts.array_type.element, error_message_ptr, error_details_ptr, outcome_ptr);
 
     }
 
@@ -94,13 +94,13 @@ done:
 
 }
 
-static inline void tjv_ValidateTclInteger(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+static inline void tjv_ValidateTclInteger(Tcl_Obj *data, tjv_ValidationStack *stack, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter; value: [%s]", Tcl_GetString(data)));
 
     Tcl_WideInt val;
     if (Tcl_GetWideIntFromObj(NULL, data, &val) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(stack, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -109,12 +109,12 @@ static inline void tjv_ValidateTclInteger(Tcl_Obj *data, Tcl_Size index, tjv_Val
 
     if (ve->opts.int_type.is_min_value_defined && val < ve->opts.int_type.min_value) {
         snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d", ve->opts.int_type.min_value);
-        tjv_MessageGenerateValue(ve->path, index,
+        tjv_MessageGenerateValue(stack,
             Tcl_ObjPrintf("value is less than the minimum %s", buf),
             error_message_ptr, error_details_ptr);
     } else if (ve->opts.int_type.is_max_value_defined && val > ve->opts.int_type.max_value) {
         snprintf(buf, sizeof(buf), "%" TCL_LL_MODIFIER "d", ve->opts.int_type.max_value);
-        tjv_MessageGenerateValue(ve->path, index,
+        tjv_MessageGenerateValue(stack,
             Tcl_ObjPrintf("value is greater than the maximum %s", buf),
             error_message_ptr, error_details_ptr);
     } else {
@@ -125,23 +125,23 @@ static inline void tjv_ValidateTclInteger(Tcl_Obj *data, Tcl_Size index, tjv_Val
 
 }
 
-static inline void tjv_ValidateTclDouble(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+static inline void tjv_ValidateTclDouble(Tcl_Obj *data, tjv_ValidationStack *stack, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
     double val;
     if (Tcl_GetDoubleFromObj(NULL, data, &val) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(stack, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
 
     if (ve->opts.double_type.is_min_value_defined && val < ve->opts.double_type.min_value) {
-        tjv_MessageGenerateValue(ve->path, index,
+        tjv_MessageGenerateValue(stack,
             Tcl_ObjPrintf("value is less than the minimum %f", ve->opts.double_type.min_value),
             error_message_ptr, error_details_ptr);
     } else if (ve->opts.double_type.is_max_value_defined && val > ve->opts.double_type.max_value) {
-        tjv_MessageGenerateValue(ve->path, index,
+        tjv_MessageGenerateValue(stack,
             Tcl_ObjPrintf("value is greater than the maximum %f", ve->opts.double_type.max_value),
             error_message_ptr, error_details_ptr);
     } else {
@@ -152,13 +152,13 @@ static inline void tjv_ValidateTclDouble(Tcl_Obj *data, Tcl_Size index, tjv_Vali
 
 }
 
-static inline void tjv_ValidateTclBoolean(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+static inline void tjv_ValidateTclBoolean(Tcl_Obj *data, tjv_ValidationStack *stack, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
     int val;
     if (Tcl_GetBooleanFromObj(NULL, data, &val) != TCL_OK) {
-        tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
+        tjv_MessageGenerateType(stack, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         DBG2(printf("return: error"));
         return;
     }
@@ -169,7 +169,7 @@ static inline void tjv_ValidateTclBoolean(Tcl_Obj *data, Tcl_Size index, tjv_Val
 
 }
 
-static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+static inline void tjv_ValidateTclString(Tcl_Obj *data, tjv_ValidationStack *stack, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
@@ -187,7 +187,7 @@ static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_Vali
             goto done;
         }
 
-        tjv_MessageGenerateValue(ve->path, index,
+        tjv_MessageGenerateValue(stack,
             Tcl_ObjPrintf("value does not match the specified glob pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
             error_message_ptr, error_details_ptr);
         goto error;
@@ -203,11 +203,11 @@ static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_Vali
         }
 
         if (ve->type_ex == TJV_VALIDATION_EX_STRING) {
-            tjv_MessageGenerateValue(ve->path, index,
+            tjv_MessageGenerateValue(stack,
                 Tcl_ObjPrintf("value does not match the specified regexp pattern '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
                 error_message_ptr, error_details_ptr);
         } else {
-            tjv_MessageGenerateType(ve->path, index, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
+            tjv_MessageGenerateType(stack, tjv_GetValidationTypeString(ve->type_ex), error_message_ptr, error_details_ptr);
         }
         goto error;
 
@@ -224,7 +224,7 @@ static inline void tjv_ValidateTclString(Tcl_Obj *data, Tcl_Size index, tjv_Vali
             }
         }
 
-        tjv_MessageGenerateValue(ve->path, index,
+        tjv_MessageGenerateValue(stack,
             Tcl_ObjPrintf("value is not the specified list of allowed values '%s'", Tcl_GetString(ve->opts.str_type.pattern)),
             error_message_ptr, error_details_ptr);
         goto error;
@@ -247,32 +247,44 @@ error:
 }
 
 
-void tjv_ValidateTcl(Tcl_Obj *data, Tcl_Size index, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
+void tjv_ValidateTcl(Tcl_Obj *data, tjv_ValidationStack *stack_parent, tjv_ValidationElement *ve, Tcl_Obj **error_message_ptr, Tcl_Obj **error_details_ptr, Tcl_Obj **outcome_ptr) {
 
     DBG2(printf("enter"));
 
+    tjv_ValidationStack stack = { NULL, NULL, (ve->flag == TJV_FLAG_SKIP_KEY ? INT2PTR(1) : ve->key), -1 };
+    if (stack_parent == NULL) {
+        stack.head = &stack;
+    } else {
+        stack.head = stack_parent->head;
+        stack_parent->next = &stack;
+    }
+
     switch (ve->type) {
     case TJV_VALIDATION_STRING:
-        tjv_ValidateTclString(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclString(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_INTEGER:
-        tjv_ValidateTclInteger(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclInteger(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_JSON:
-        tjv_ValidateTclJson(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclJson(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_OBJECT:
-        tjv_ValidateTclObject(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclObject(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_ARRAY:
-        tjv_ValidateTclArray(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclArray(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_BOOLEAN:
-        tjv_ValidateTclBoolean(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclBoolean(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
     case TJV_VALIDATION_DOUBLE:
-        tjv_ValidateTclDouble(data, index, ve, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTclDouble(data, &stack, ve, error_message_ptr, error_details_ptr, outcome_ptr);
         break;
+    }
+
+    if (stack_parent != NULL) {
+        stack_parent->next = NULL;
     }
 
     DBG2(printf("return: %s", (*error_message_ptr == NULL ? "ok" : "error")));

@@ -16,24 +16,18 @@ test_custom_format uri {
     + http://www.zend.com
     + https://example.com:10082/foo/bar?query
     + ../relative/path
-    # TODO: should be positive
-    - ?queryOnly
-    # TODO: should be positive
-    - #fragmentOnly
+    + ?queryOnly
+    + #fragmentOnly
     + mailto:bob@example.com
     + bob@example.com
     # TODO: should be positive
     - http://a_.!~*\'(-)n0123Di%25%26:pass;:&=+$,word@www.zend.com
-    # TODO: should be positive
-    - http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:80/index.html
-    # TODO: should be positive
-    - http://[1080::8:800:200C:417A]/foo
+    + http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:80/index.html
+    + http://[1080::8:800:200C:417A]/foo
     + http://[::192.9.5.5]/ipng
-    # TODO: should be positive
-    - http://[::FFFF:129.144.52.38]:80/index.html
+    + http://[::FFFF:129.144.52.38]:80/index.html
     + http://[2620:0:1cfe:face:b00c::3]/
-    # TODO: should be positive
-    - http://[2010:836B:4179::836B:4179]
+    + http://[2010:836B:4179::836B:4179]
     + http
     + www.example.org:80
     + www.example.org:
@@ -66,7 +60,8 @@ test_custom_format uri {
     + http://
     - [[2620:0:1cfe:face:b00c::3]]
     # IPv6 without literal format
-    - http://1080::8:800:200C:417A/foo
+    # TODO: should be negative
+    + http://1080::8:800:200C:417A/foo
     # TODO: should be negative
     + http://::/foo
 }

@@ -1,4 +1,4 @@
-Fix error messages for arrays. See test tjvValidateTclJson-3.1 in validateTclJson.test
+Add CI with GitHub Actions
 
 Add ability to define a callback procedure for validation. It can be -command option
     for the type string, or special type "command".

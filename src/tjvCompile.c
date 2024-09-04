@@ -14,7 +14,7 @@ static Tcl_ThreadDataKey dataKey;
 static int tjv_validationcompile_initialized = 0;
 static Tcl_Mutex tjv_validationcompile_initialize_mx;
 
-#define TJV_CUSTOM_TYPE_COUNT 3
+#define TJV_CUSTOM_TYPE_COUNT 12
 
 static const struct {
     tjv_ValidationElementTypeEx type_ex;
@@ -24,7 +24,7 @@ static const struct {
     {
         TJV_VALIDATION_EX_EMAIL,
         "email",
-        "^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+        "(?i)^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
     }, {
         TJV_VALIDATION_EX_DURATION,
         "duration",
@@ -32,7 +32,43 @@ static const struct {
     }, {
         TJV_VALIDATION_EX_URI,
         "uri",
-        "^(?:[a-z][a-z0-9+\\-.]*:)?(?:\\/?\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)|(?:[a-z0-9\\-._~!$&'\"()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\\?(?:[a-z0-9\\-._~!$&'\"()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'\"()*+,;=:@/?]|%[0-9a-f]{2})*)?$"
+        "(?i)^(?:[a-z][a-z0-9+\\-.]*:)?(?:\\/?\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)|(?:[a-z0-9\\-._~!$&'\"()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'\"()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\\?(?:[a-z0-9\\-._~!$&'\"()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'\"()*+,;=:@/?]|%[0-9a-f]{2})*)?$"
+    }, {
+        TJV_VALIDATION_EX_URI_TEMPLATE,
+        "uri-template",
+        "(?i)^(?:(?:[^\\x00-\\x20\"'<>%\\\\^`{|}]|%[0-9a-f]{2})|\\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\\*)?)*\\})*$"
+    }, {
+        TJV_VALIDATION_EX_URL,
+        "url",
+        "(?i)^(?:https?|ftp):\\/\\/(?:\\S+(?::\\S*)?@)?(?:(?!(?:10|127)(?:\\.\\d{1,3}){3})(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z0-9\\u00a1-\\uffff]+-)*[a-z0-9\\u00a1-\\uffff]+)(?:\\.(?:[a-z0-9\\u00a1-\\uffff]+-)*[a-z0-9\\u00a1-\\uffff]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))(?::\\d{2,5})?(?:\\/[^\\s]*)?$"
+    }, {
+        TJV_VALIDATION_EX_HOSTNAME,
+        "hostname",
+        "(?i)^(?=.{1,253}\\.?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[-0-9a-z]{0,61}[0-9a-z])?)*\\.?$"
+    }, {
+        TJV_VALIDATION_EX_IPV4,
+        "ipv4",
+        "^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$"
+    }, {
+        TJV_VALIDATION_EX_IPV6,
+        "ipv6",
+        "(?i)^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}))|:)))$"
+    }, {
+        TJV_VALIDATION_EX_UUID,
+        "uuid",
+        "(?i)^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$"
+    }, {
+        TJV_VALIDATION_EX_JSON_POINTER,
+        "json-pointer",
+        "^(?:\\/(?:[^~/]|~0|~1)*)*$"
+    }, {
+        TJV_VALIDATION_EX_JSON_POINTER_URI_FRAGMENT,
+        "json-pointer-uri-fragment",
+        "(?i)^#(?:\\/(?:[a-z0-9_\\-.!$&'()*+,;:=@]|%[0-9a-f]{2}|~0|~1)*)*$"
+    }, {
+        TJV_VALIDATION_EX_RELATIVE_JSON_POINTER,
+        "relative-json-pointer",
+        "^(?:0|[1-9][0-9]*)(?:#|(?:\\/(?:[^~/]|~0|~1)*)*)$"
     }
 };
 
@@ -72,6 +108,15 @@ const char *tjv_GetValidationTypeString(tjv_ValidationElementTypeEx type_ex) {
     case TJV_VALIDATION_EX_EMAIL:
     case TJV_VALIDATION_EX_DURATION:
     case TJV_VALIDATION_EX_URI:
+    case TJV_VALIDATION_EX_URI_TEMPLATE:
+    case TJV_VALIDATION_EX_URL:
+    case TJV_VALIDATION_EX_HOSTNAME:
+    case TJV_VALIDATION_EX_IPV4:
+    case TJV_VALIDATION_EX_IPV6:
+    case TJV_VALIDATION_EX_UUID:
+    case TJV_VALIDATION_EX_JSON_POINTER:
+    case TJV_VALIDATION_EX_JSON_POINTER_URI_FRAGMENT:
+    case TJV_VALIDATION_EX_RELATIVE_JSON_POINTER:
         return tjv_custom_types[tjv_GetCustomTypeId(type_ex)].name;
     }
     return NULL;
@@ -100,12 +145,6 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
     if (ve->key != NULL) {
         Tcl_DecrRefCount(ve->key);
     }
-    if (ve->path != NULL) {
-        Tcl_DecrRefCount(ve->path);
-    }
-    if (ve->path_parent != NULL) {
-        Tcl_DecrRefCount(ve->path_parent);
-    }
     if (ve->outkey != NULL) {
         Tcl_DecrRefCount(ve->outkey);
     }
@@ -113,16 +152,17 @@ void tjv_ValidationElementFree(tjv_ValidationElement *ve) {
     // A json can be defined as an array or an object. We need to change the ve
     // type to match the json type to properly release the children.
     if (ve->type == TJV_VALIDATION_JSON) {
-        switch (ve->json_type) {
-        case TJV_JSON_TYPE_OBJECT:
+        switch (ve->flag) {
+        case TJV_FLAG_JSON_TYPE_OBJECT:
             DBG2(printf("set json type as an object"));
             ve->type = TJV_VALIDATION_OBJECT;
             break;
-        case TJV_JSON_TYPE_ARRAY:
+        case TJV_FLAG_JSON_TYPE_ARRAY:
             DBG2(printf("set json type as an array"));
             ve->type = TJV_VALIDATION_ARRAY;
             break;
-        case TJV_JSON_TYPE_NONE:
+        case TJV_FLAG_NONE:
+        case TJV_FLAG_SKIP_KEY:
             break;
         }
     }
@@ -169,14 +209,14 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
 
     DBG2(printf("enter"));
 
-    // The first element objv for tjv_ValidationCompile() is a key name.
-    // We should use the key name of the array itself for the child
-    // validation schema.
+    // We will use a stub as the key of the validation element for array elements
 
     Tcl_Obj *items_format = Tcl_DuplicateObj(data);
-    if (Tcl_ListObjReplace(interp, items_format, 0, 0, 1, &ve->key) != TCL_OK) {
+    Tcl_Obj *key_stub = Tcl_NewStringObj("", -1);
+    if (Tcl_ListObjReplace(interp, items_format, 0, 0, 1, &key_stub) != TCL_OK) {
         DBG2(printf("return: error (wrong list format)"));
         Tcl_BounceRefCount(items_format);
+        Tcl_BounceRefCount(key_stub);
         return TCL_ERROR;
     }
 
@@ -187,14 +227,19 @@ static int tjv_ValidationCompileItems(Tcl_Interp *interp, Tcl_Obj *data, tjv_Val
     // for errors here.
     Tcl_ListObjGetElements(NULL, items_format, &items_objc, &items_objv);
 
-    ve->opts.array_type.element = tjv_ValidationCompile(interp, items_objc, items_objv, ve->path_parent, NULL, NULL);
+    tjv_ValidationElement *element = tjv_ValidationCompile(interp, items_objc, items_objv, NULL, NULL);
     Tcl_BounceRefCount(items_format);
 
-    if (ve->opts.array_type.element == NULL) {
+    if (element == NULL) {
         DBG2(printf("return: error (failed to items format)"));
         return TCL_ERROR;
     }
 
+    if (element->type != TJV_VALIDATION_ARRAY) {
+        element->flag = TJV_FLAG_SKIP_KEY;
+    }
+
+    ve->opts.array_type.element = element;
 
     DBG2(printf("return: ok"));
     return TCL_OK;
@@ -251,7 +296,7 @@ static int tjv_ValidationCompileProperties(Tcl_Interp *interp, Tcl_Obj *data, tj
         const char *key_name = Tcl_GetString(child_objv[0]);
 
         DBG2(printf("parse property: [%s]", key_name));
-        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, ve->path, NULL, NULL);
+        elements[i] = tjv_ValidationCompile(interp, child_objc, child_objv, NULL, NULL);
         if (elements[i] == NULL) {
 
             DBG2(printf("return: error (failed to parse element #%" TCL_SIZE_MODIFIER "d [%s]: %s",
@@ -283,7 +328,7 @@ static int copy_arg(void *clientData, Tcl_Obj *objPtr, void *dstPtr) {
     return 1;
 }
 
-tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj *path, Tcl_Obj **rest_arg1, Tcl_Obj **rest_arg2) {
+tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, Tcl_Obj *const objv[], Tcl_Obj **rest_arg1, Tcl_Obj **rest_arg2) {
 
     DBG2(printf("enter: objc: %d", objc));
 
@@ -311,7 +356,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         { TCL_ARGV_FUNC,     "-type",       copy_arg,   &opt_type,        NULL, NULL },
         { TCL_ARGV_CONSTANT, "-required",   INT2PTR(1), &opt_is_required, NULL, NULL },
         { TCL_ARGV_CONSTANT, "-nullable",   INT2PTR(1), &opt_is_nullable, NULL, NULL },
-        { TCL_ARGV_FUNC,     "-command",    copy_arg,   &opt_command,     NULL, NULL },
+        // { TCL_ARGV_FUNC,     "-command",    copy_arg,   &opt_command,     NULL, NULL },
         { TCL_ARGV_FUNC,     "-outkey",     copy_arg,   &opt_outkey,      NULL, NULL },
         // TJV_VALIDATION_STRING
         { TCL_ARGV_FUNC,     "-match",      copy_arg,   &opt_match,       NULL, NULL },
@@ -331,17 +376,27 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         const char *type_name;
         tjv_ValidationElementTypeEx type;
     } type_name_map[] = {
-        { "object",   TJV_VALIDATION_EX_OBJECT   },
-        { "array",    TJV_VALIDATION_EX_ARRAY    },
-        { "list",     TJV_VALIDATION_EX_ARRAY    },
-        { "string",   TJV_VALIDATION_EX_STRING   },
-        { "integer",  TJV_VALIDATION_EX_INTEGER  },
-        { "json",     TJV_VALIDATION_EX_JSON     },
-        { "boolean",  TJV_VALIDATION_EX_BOOLEAN  },
-        { "double",   TJV_VALIDATION_EX_DOUBLE   },
-        { "email",    TJV_VALIDATION_EX_EMAIL    },
-        { "duration", TJV_VALIDATION_EX_DURATION },
-        { "uri",      TJV_VALIDATION_EX_URI      },
+        { "json",                      TJV_VALIDATION_EX_JSON                      },
+        { "object",                    TJV_VALIDATION_EX_OBJECT                    },
+        { "array",                     TJV_VALIDATION_EX_ARRAY                     },
+        { "list",                      TJV_VALIDATION_EX_ARRAY                     },
+        { "integer",                   TJV_VALIDATION_EX_INTEGER                   },
+        { "float",                     TJV_VALIDATION_EX_DOUBLE                    },
+        { "double",                    TJV_VALIDATION_EX_DOUBLE                    },
+        { "boolean",                   TJV_VALIDATION_EX_BOOLEAN                   },
+        { "string",                    TJV_VALIDATION_EX_STRING                    },
+        { "email",                     TJV_VALIDATION_EX_EMAIL                     },
+        { "duration",                  TJV_VALIDATION_EX_DURATION                  },
+        { "uri",                       TJV_VALIDATION_EX_URI                       },
+        { "uri-template",              TJV_VALIDATION_EX_URI_TEMPLATE              },
+        { "url",                       TJV_VALIDATION_EX_URL                       },
+        { "hostname",                  TJV_VALIDATION_EX_HOSTNAME                  },
+        { "ipv4",                      TJV_VALIDATION_EX_IPV4                      },
+        { "ipv6",                      TJV_VALIDATION_EX_IPV6                      },
+        { "uuid",                      TJV_VALIDATION_EX_UUID                      },
+        { "json-pointer",              TJV_VALIDATION_EX_JSON_POINTER              },
+        { "json-pointer-uri-fragment", TJV_VALIDATION_EX_JSON_POINTER_URI_FRAGMENT },
+        { "relative-json-pointer",     TJV_VALIDATION_EX_RELATIVE_JSON_POINTER     },
         { NULL }
     };
 
@@ -516,29 +571,30 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         DBG2(printf("outkey: <none>"));
     }
 
-    rc->path_parent = path;
-    if (rc->path_parent != NULL) {
-        Tcl_IncrRefCount(rc->path_parent);
-    }
-
-    if (path == NULL) {
-        rc->key = Tcl_NewStringObj("", -1);
-        rc->path = rc->key;
-    } else {
+    // If rest_arg1 is not NULL, then we are currently in the root element and
+    // it should be without a key. Therefore, we do not change it, and leave it
+    // as NULL by default. Otherwise, we use the first element as our key.
+    if (rest_arg1 == NULL) {
         rc->key = objv[0];
-        rc->path = Tcl_DuplicateObj(path);
-        Tcl_AppendToObj(rc->path, ".", 1);
-        Tcl_AppendObjToObj(rc->path, rc->key);
+        Tcl_IncrRefCount(rc->key);
+        DBG2(printf("key: [%s]", Tcl_GetString(rc->key)));
+    } else {
+        DBG2(printf("key: <root>"));
     }
-    Tcl_IncrRefCount(rc->key);
-    Tcl_IncrRefCount(rc->path);
-
-    DBG2(printf("key: [%s] path: [%s]", Tcl_GetString(rc->key), Tcl_GetString(rc->path)));
 
     ThreadSpecificData *tsdPtr;
 
     switch (element_type) {
+    case TJV_VALIDATION_EX_HOSTNAME:
+    case TJV_VALIDATION_EX_IPV4:
+    case TJV_VALIDATION_EX_IPV6:
+    case TJV_VALIDATION_EX_UUID:
+    case TJV_VALIDATION_EX_JSON_POINTER:
+    case TJV_VALIDATION_EX_JSON_POINTER_URI_FRAGMENT:
+    case TJV_VALIDATION_EX_RELATIVE_JSON_POINTER:
+    case TJV_VALIDATION_EX_URL:
     case TJV_VALIDATION_EX_URI:
+    case TJV_VALIDATION_EX_URI_TEMPLATE:
     case TJV_VALIDATION_EX_DURATION:
     case TJV_VALIDATION_EX_EMAIL:
 
@@ -548,6 +604,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
             tsdPtr->pattern[type_id] = Tcl_NewStringObj(tjv_custom_types[type_id].pattern, -1);
             Tcl_IncrRefCount(tsdPtr->pattern[type_id]);
             tsdPtr->regexp[type_id] = Tcl_GetRegExpFromObj(NULL, tsdPtr->pattern[type_id], TCL_REG_ADVANCED);
+            assert(tsdPtr->regexp[type_id] != NULL && "failed to compile regexp");
         }
 
         rc->opts.str_type.match = TJV_STRING_MATCHING_REGEXP;
@@ -657,7 +714,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
                 goto error;
             }
 
-            rc->json_type = TJV_JSON_TYPE_ARRAY;
+            rc->flag = TJV_FLAG_JSON_TYPE_ARRAY;
 
             DBG2(printf("add items format"));
             if (tjv_ValidationCompileItems(interp, opt_items, rc) != TCL_OK) {
@@ -667,7 +724,7 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
 
         } else if (opt_properties != NULL) {
 
-            rc->json_type = TJV_JSON_TYPE_OBJECT;
+            rc->flag = TJV_FLAG_JSON_TYPE_OBJECT;
 
             DBG2(printf("add properties"));
             if (tjv_ValidationCompileProperties(interp, opt_properties, rc) != TCL_OK) {

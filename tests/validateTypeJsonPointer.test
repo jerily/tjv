@@ -1,0 +1,29 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: <none>
+
+test_custom_format json-pointer {
+    + /foo
+    + /foo/0
+    + /
+    + /a~1b
+    + /c%d
+    + /e^f
+    + /g|h
+    + /i\j
+    + /m~0n
+    - abc
+    - 1
+    - #
+    - /ab~cd
+}
+

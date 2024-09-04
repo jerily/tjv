@@ -23,7 +23,7 @@ test tjvValidateJsonArray-2.1 {Test nested arrays, correct case} -body {
 
 test tjvValidateJsonArray-2.2 {Test nested arrays, incorrect case} -body {
     tjv::validate -type json -items {-type array -items {-type integer}} {[[1,2,3,4],[3,"foo"],[],[-1,2,true]]}
-} -returnCodes error -result {Error while validating data: [1] should be integer, [2] should be integer}
+} -returnCodes error -result {Error while validating data: .[1].[1] should be integer, .[3].[2] should be integer}
 
 test tjvValidateJsonArray-3.1 {Test array in object, correct case} -body {
     tjv::validate -type json -properties {
