@@ -17,7 +17,7 @@ test_custom_format duration {
     # TODO: ERROR: fractional numbers are not supported by current regexp
     - PT0.5H
     # TODO: ERROR: fractional numbers are not supported by current regexp
-    # Probably shouldn’t be valid since only the last value can have fractions
+    # Probably shouldn't be valid since only the last value can have fractions
     - PT0.5H29M60S
     + PT15S
     + PT1M
