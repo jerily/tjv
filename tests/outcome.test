@@ -106,3 +106,105 @@ test tjvOutcome-3.2 {Test multiple values, with json, with outcome variable} -bo
 } -cleanup {
     unset -nocomplain result outcome
 } -result {1 {val1 123 val2 1 val3 {teststring with spaces} sub {val {test valbaz}}}}
+
+test tjvOutcome-4.1.1 {Test array outcome when children without outkey, tcl} -body {
+    tjv::validate -type object -properties {
+        {foo -type array -outkey outkey -items {
+            -type object -properties {
+                { f1 -type string -required }
+                { f2 -type integer -required }
+            }
+        }}
+    } {
+        foo {
+            { f1 val1 f2 1 }
+            { f1 val2 f2 2 }
+            { f1 val3 f2 3 }
+        }
+    }
+} -result {outkey {}}
+
+test tjvOutcome-4.1.2 {Test array outcome when children without outkey, json} -body {
+    tjv::validate -type json -properties {
+        {foo -type array -outkey outkey -items {
+            -type object -properties {
+                { f1 -type string -required }
+                { f2 -type integer -required }
+            }
+        }}
+    } {{
+        "foo": [
+            { "f1": "val1", "f2": 1 },
+            { "f1": "val2", "f2": 2 },
+            { "f1": "val3", "f2": 3 }
+        ]
+    }}
+} -result {outkey {}}
+
+test tjvOutcome-4.2.1 {Test array without outcome when children with outkey, tcl} -body {
+    tjv::validate -type object -properties {
+        {foo -type array -items {
+            -type object -properties {
+                { f1 -type string -required -outkey sfield }
+                { f2 -type integer -required -outkey ifield }
+            }
+        }}
+    } {
+        foo {
+            { f1 val1 f2 1 }
+            { f1 val2 f2 2 }
+            { f1 val3 f2 3 }
+        }
+    }
+} -result {}
+
+test tjvOutcome-4.2.2 {Test array without outcome when children with outkey, json} -body {
+    tjv::validate -type json -properties {
+        {foo -type array -items {
+            -type object -properties {
+                { f1 -type string -required -outkey sfield }
+                { f2 -type integer -required -outkey ifield }
+            }
+        }}
+    } {{
+        "foo": [
+            { "f1": "val1", "f2": 1 },
+            { "f1": "val2", "f2": 2 },
+            { "f1": "val3", "f2": 3 }
+        ]
+    }}
+} -result {}
+
+test tjvOutcome-4.3.1 {Test array outcome when children with outkey, tcl} -body {
+    tjv::validate -type object -properties {
+        {foo -type array -outkey outkey -items {
+            -type object -properties {
+                { f1 -type string -required -outkey sfield }
+                { f2 -type integer -required -outkey ifield }
+            }
+        }}
+    } {
+        foo {
+            { f1 val1 f2 1 }
+            { f1 val2 f2 2 }
+            { f1 val3 f2 3 }
+        }
+    }
+} -result {outkey {{sfield val1 ifield 1} {sfield val2 ifield 2} {sfield val3 ifield 3}}}
+
+test tjvOutcome-4.3.2 {Test array outcome when children with outkey, json} -body {
+    tjv::validate -type json -properties {
+        {foo -type array -outkey outkey -items {
+            -type object -properties {
+                { f1 -type string -required -outkey sfield }
+                { f2 -type integer -required -outkey ifield }
+            }
+        }}
+    } {{
+        "foo": [
+            { "f1": "val1", "f2": 1 },
+            { "f1": "val2", "f2": 2 },
+            { "f1": "val3", "f2": 3 }
+        ]
+    }}
+} -result {outkey {{sfield val1 ifield 1} {sfield val2 ifield 2} {sfield val3 ifield 3}}}

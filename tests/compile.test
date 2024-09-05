@@ -138,13 +138,6 @@ test tjvCompile-2.4 {Test object compilation, empty properties} -body {
     unset -nocomplain h
 } -match glob -result {::tjv::handle0x*}
 
-test tjvCompile-2.5.1 {Test object compilation, unsupported parameter for object -outkey} -body {
-    set h [tjv::compile -type object -outkey foo]
-} -cleanup {
-    catch { $h destroy }
-    unset -nocomplain h
-} -returnCodes error -result {"-outkey" option is not supported for type "object"}
-
 test tjvCompile-2.5.2 {Test object compilation, unsupported parameter for object -pattern} -body {
     set h [tjv::compile -type object -pattern foo]
 } -cleanup {
@@ -200,13 +193,6 @@ test tjvCompile-3.2 {Test array compilation, empty items} -body {
     catch { $h destroy }
     unset -nocomplain h
 } -returnCodes error -result {required option -type is not specified or its value is missing}
-
-test tjvCompile-3.3.1 {Test array compilation, unsupported parameter -outkey} -body {
-    set h [tjv::compile -type array -outkey foo]
-} -cleanup {
-    catch { $h destroy }
-    unset -nocomplain h
-} -returnCodes error -result {"-outkey" option is not supported for type "array"}
 
 test tjvCompile-3.3.2 {Test array compilation, unsupported parameter -pattern} -body {
     set h [tjv::compile -type array -pattern foo]
@@ -541,13 +527,6 @@ test tjvCompile-8.4 {Test json compilation, empty properties} -body {
     catch { $h destroy }
     unset -nocomplain h
 } -match glob -result {::tjv::handle0x*}
-
-test tjvCompile-8.5.1 {Test json compilation, unsupported parameter -outkey} -body {
-    set h [tjv::compile -type json -outkey foo]
-} -cleanup {
-    catch { $h destroy }
-    unset -nocomplain h
-} -returnCodes error -result {"-outkey" option is not supported for type "json"}
 
 test tjvCompile-8.5.2 {Test json compilation, unsupported parameter -pattern} -body {
     set h [tjv::compile -type json -pattern foo]

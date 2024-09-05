@@ -493,8 +493,6 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
     // Check if the user has specified options that are not supported for
     // the corresponding type.
 
-    // Check if -outkey is specified for object/array types
-
     if (opt_match != NULL && element_type != TJV_VALIDATION_EX_STRING) {
         bad_option = "-match";
     } else if (opt_pattern != NULL && element_type != TJV_VALIDATION_EX_STRING) {
@@ -507,8 +505,6 @@ tjv_ValidationElement *tjv_ValidationCompile(Tcl_Interp *interp, Tcl_Size objc, 
         bad_option = "-maximum";
     } else if (opt_items != NULL && !(element_type == TJV_VALIDATION_EX_ARRAY || element_type == TJV_VALIDATION_EX_JSON)) {
         bad_option = "-items";
-    } else if (opt_outkey != NULL && (element_type == TJV_VALIDATION_EX_OBJECT || element_type == TJV_VALIDATION_EX_ARRAY || element_type == TJV_VALIDATION_EX_JSON)) {
-        bad_option = "-outkey";
     }
 
     if (bad_option != NULL) {

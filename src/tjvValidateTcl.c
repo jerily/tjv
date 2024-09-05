@@ -77,18 +77,47 @@ static inline void tjv_ValidateTclArray(Tcl_Obj *data, tjv_ValidationStack *stac
         goto done;
     }
 
+    Tcl_Obj *result_outcome, *item_outcome, **item_outcome_ptr;
+    if (outcome_ptr == NULL || ve->outkey == NULL) {
+        item_outcome = NULL;
+        item_outcome_ptr = NULL;
+    } else {
+        result_outcome = Tcl_NewListObj(0, NULL);
+        item_outcome = Tcl_NewDictObj();
+        item_outcome_ptr = &item_outcome;
+    }
+    DBG2(printf("array should return result: %s", (outcome_ptr == NULL ? "no" : "yes")));
+
     // Go throught all keys
     for (stack->index = 0; stack->index < items_objc; stack->index++) {
 
         DBG2(printf("check array element #%" TCL_SIZE_MODIFIER "d", stack->index));
 
-        tjv_ValidateTcl(items_objv[stack->index], stack, ve->opts.array_type.element, error_message_ptr, error_details_ptr, outcome_ptr);
+        tjv_ValidateTcl(items_objv[stack->index], stack, ve->opts.array_type.element, error_message_ptr, error_details_ptr, item_outcome_ptr);
+
+        if (item_outcome != NULL) {
+
+            int dict_size;
+            Tcl_DictObjSize(NULL, item_outcome, &dict_size);
+
+            if (dict_size > 0) {
+                DBG2(printf("got result with %d key(s)", dict_size));
+                Tcl_ListObjAppendElement(NULL, result_outcome, item_outcome);
+                item_outcome = Tcl_NewDictObj();
+            } else {
+                DBG2(printf("got empty result"));
+            }
+
+        }
 
     }
 
-done:
+    if (item_outcome != NULL) {
+        Tcl_BounceRefCount(item_outcome);
+        ADD_OUTCOME(result_outcome);
+    }
 
-    ADD_OUTCOME(data);
+done:
 
     DBG2(printf("return: ok"));
 
