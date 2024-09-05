@@ -81,7 +81,7 @@ A validation schema definition is a list of parameters. The general format is as
   * **relative-json-pointer** specifies a string representing a valid relative JSON pointer ([draft-handrews-relative-json-pointer-01](https://datatracker.ietf.org/doc/html/draft-handrews-relative-json-pointer-01))
 * **-required** - (optional flag) if it is specified, validation will fail if this key is missing.
 * **-nullable** - (optional flag) if it is specified, then a null value is allowed for this key. Only works for JSON.
-* **-outkey keys** - (optional flag) if it is specified, then the value for this key will be stored in output dictionary.
+* **-outkey keys** - (optional flag) if it is specified, then the value for this key will be stored in output dictionary. (For details, see [Validation results](#validation-results))
 
 These parameters are allowed only for the `string` type:
 
@@ -264,5 +264,61 @@ Validation error: Error while validating data: .key1 should be integer, should h
 
 ### Validation results
 
-TBD
+This package not only allows to validate the data, but also to return the necessary values as a Tcl dict. This is especially useful for returning values from JSON because it eliminates the necessity to parse JSON separately.
 
+To extract values, it is necessary to use the `-outkey` parameter for a particular property. The value of this parameter is a list of keys that will be created in the resulting dictionary.
+
+For example:
+
+```tcl
+package require tjv
+
+set data_json {{
+    "application": "myapplication",
+    "user": {
+        "name": "John Doe",
+        "age": 28,
+        "address": "854 Jerde Stravenue, Erdmanfort, IA 02012-0685",
+        "Country": "USA"
+    },
+    "school": {
+        "name": "University",
+        "address": "6062 Yu Track, Port Antone, SD 67088"
+    }
+}}
+
+set handle [::tjv::compile -type json -properties {
+    { user -type object -properties {
+        { name -type string -required -outkey user }
+        { age -type integer -minimum 0 -required -outkey age }
+        { address -type string -required -outkey "address user" }
+    }}
+    { school -type object -properties {
+        { address -type string -required -outkey "address school" }
+    }}
+}]
+
+if { [$handle validate $data_json outcome] } {
+    puts "The data is valid: User [dict get $outcome "user"] is [dict get $outcome "age"] years old"
+    puts "Address: [dict get $outcome "address" "user"]"
+    puts "School address: [dict get $outcome "address" "school"]"
+} else {
+    puts "ERROR: invalid data: [dict get $outcome error message]"
+}
+
+$handle destroy
+```
+
+This example validates the input data and populates the `outcome` dictionary with the required values. The result of this example will be:
+
+```
+The data is valid: User John Doe is 28 years old
+Address: 854 Jerde Stravenue, Erdmanfort, IA 02012-0685
+School address: 6062 Yu Track, Port Antone, SD 67088
+```
+
+If the input data does not match the specified validation scheme, for example, if the JSON value of `user.age` is negative, the result will be as follows:
+
+```
+ERROR: invalid data: Error while validating data: .user.age value is less than the minimum 0
+```
