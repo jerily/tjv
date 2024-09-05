@@ -212,13 +212,13 @@ static inline void tjv_ValidateJsonString(const cJSON *json, tjv_ValidationStack
         return;
     }
 
+    const char *val = cJSON_GetStringValue(json);
+    DBG2(printf("string to validate: [%s]", val));
+
     // If pattern is NULL, we don't need to validate anything
     if (ve->opts.str_type.pattern == NULL) {
         goto done;
     }
-
-    const char *val = cJSON_GetStringValue(json);
-    DBG2(printf("string to validate: [%s]", val));
 
     switch (ve->opts.str_type.match) {
     case TJV_STRING_MATCHING_GLOB:

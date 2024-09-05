@@ -91,16 +91,18 @@ test tjvOutcome-3.2 {Test multiple values, with json, with outcome variable} -bo
         {foo -type json -properties {
             { bar1 -type integer -outkey "val1" }
             { bar2 -type boolean -outkey "val2" }
+            { bar3 -type string -outkey "val3" }
         }}
         {baz -type string -outkey "sub val test"}
     } {
         foo {{
             "bar1": 123,
-            "bar2": true
+            "bar2": true,
+            "bar3": "teststring with spaces"
         }}
         baz valbaz
     } outcome]
     lappend result $outcome
 } -cleanup {
     unset -nocomplain result outcome
-} -result {1 {val1 123 val2 1 sub {val {test valbaz}}}}
+} -result {1 {val1 123 val2 1 val3 {teststring with spaces} sub {val {test valbaz}}}}
