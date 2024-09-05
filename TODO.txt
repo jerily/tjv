@@ -1,4 +1,6 @@
-Add CI with GitHub Actions
+Add support for minlength and maxlength validation for strings
+
+Add support for minitems and maxitems validation for arrays
 
 Add ability to define a callback procedure for validation. It can be -command option
     for the type string, or special type "command".
