@@ -97,7 +97,7 @@ static inline void tjv_ValidateTclArray(Tcl_Obj *data, tjv_ValidationStack *stac
 
         if (item_outcome != NULL) {
 
-            int dict_size;
+            Tcl_Size dict_size;
             Tcl_DictObjSize(NULL, item_outcome, &dict_size);
 
             if (dict_size > 0) {

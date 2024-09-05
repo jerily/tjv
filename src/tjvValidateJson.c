@@ -108,7 +108,7 @@ static void tjv_ValidateJsonArray(const cJSON *json, tjv_ValidationStack *stack,
 
         if (item_outcome != NULL) {
 
-            int dict_size;
+            Tcl_Size dict_size;
             Tcl_DictObjSize(NULL, item_outcome, &dict_size);
 
             if (dict_size > 0) {
