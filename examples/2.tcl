@@ -19,8 +19,8 @@ set mydict {
    foo 10
    bar 100
    users {
-       {{ name "John Doe"} { email "john@example.com"}}
-       {{ name "Jane Doe"} { email "jane@example.com"}}
+       { name "John Doe" email "john@example.com"}
+       { name "Jane Doe" email "jane@example.com"}
    }
    data {{
        "state": "enabled",
