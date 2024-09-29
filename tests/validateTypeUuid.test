@@ -1,0 +1,67 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: <none>
+
+test_custom_format uuid {
+    + 123e4567-e89b-12d3-a456-426614174000
+    + 550e8400-e29b-41d4-a716-446655440000
+    + f47ac10b-58cc-4372-a567-0e02b2c3d479
+    + 00000000-0000-0000-0000-000000000000
+    + 67e55044-10b1-426f-9247-bb680e5fe0c8
+    + 7c9e6679-7425-40de-944b-e07fc1f90ae7
+    + 16fd2706-8baf-433b-82eb-8c7fada847da
+    + a8098c1a-f86e-11da-bd1a-00112444be1e
+    + b4c5d3b6-5f9e-4562-923f-7ec3b3b8e6b6
+    + c9bf9e57-1685-4c89-BAFB-ff5af830be8a
+    + DE305D54-75B4-431B-ADB2-EB6B9E546014
+    # Missing hyphens
+    - 123e4567e89b12d3a456426614174000
+    # Too short
+    - 550e8400-e29b-41d4-a716-44665544000
+    # Too long
+    - 550e8400-e29b-41d4-a716-4466554400000
+    # Contains invalid characters
+    - 550e8400-e29b-41d4-a716-4466554400zz
+    # Too short, missing digits
+    - 550e8400-e29b-41d4-a716-4466554400
+    # Misplaced hyphen
+    - 550e8400-e29b-41d4-a716-4466-55440000
+    # Missing all hyphens
+    - 550e8400e29b41d4a716446655440000
+    # Contains non-hex characters
+    - 550e8400-e29b-41d4-a716-zz6655440000
+    # Contains non-hex character 'G'
+    - 550e8400-e29b-41d4-a716-44665544000G
+    # Too short, missing section
+    - 550e8400-e29b-41d4-a716-44665544
+    # Too long, extra characters
+    - 550e8400-e29b-41d4-a716-44665544000000
+    # Contains invalid characters
+    - 550e8400-e29b-41d4-a716-44665544gg00
+    # Contains a space
+    - 550e8400-e29b-41d4-a716-44665544 0000
+    # Starts with a non-hex character
+    - g50e8400-e29b-41d4-a716-446655440000
+    # Extra hyphen
+    - 550e8400-e29b-41d4-a716-44665544-0000
+    # Incorrect hyphen placement
+    - 550e8400-e29b-41d4-a716-4466-54440000
+    # Invalid character 'z'
+    - 550e8400-e29b-41d4-a716-4466z5440000
+    # Truncated
+    - 550e8400-e29b-41d4-a716-
+    # Starts with a hyphen
+    - -550e8400-e29b-41d4-a716-446655440000
+    # Ends with a hyphen
+    - 550e8400-e29b-41d4-a716-44665544000-
+}
+

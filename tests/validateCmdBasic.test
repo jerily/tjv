@@ -1,0 +1,79 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateCmdBasic-1.1 {Test base format, no arguments} -body {
+    tjv::validate
+} -cleanup {
+} -returnCodes error -result {wrong # args: should be "tjv::validate validation_schema value ?outcome_variable?"}
+
+test tjvValidateCmdBasic-2.1.1 {Test inline format, no outcome variable, success} -body {
+    tjv::validate -type integer 1
+} -cleanup {
+} -result {}
+
+test tjvValidateCmdBasic-2.1.2 {Test inline format, no outcome variable, failure} -body {
+    tjv::validate -type integer a
+} -cleanup {
+} -returnCodes error -result {Error while validating data: should be integer}
+
+test tjvValidateCmdBasic-2.2.1 {Test inline format, outcome variable, success} -body {
+    unset -nocomplain result err
+    lappend result [tjv::validate -type integer 1 outcome]
+    lappend result $outcome
+} -cleanup {
+    unset -nocomplain result outcome
+} -result {1 {}}
+
+test tjvValidateCmdBasic-2.2.2 {Test inline format, outcome variable, failure} -body {
+    unset -nocomplain result err
+    lappend result [tjv::validate -type integer a outcome]
+    lappend result $outcome
+} -cleanup {
+    unset -nocomplain result outcome
+} -result {0 {error {name ValidationError message {Error while validating data: should be integer}} data {{keyword type dataPath {} message {should be integer}}}}}
+
+test tjvValidateCmdBasic-3.1.1 {Test compiled format, no outcome variable, success} -body {
+    set h [tjv::compile -type integer]
+    tjv::validate $h 1
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -result {}
+
+test tjvValidateCmdBasic-3.1.2 {Test compiled format, no outcome variable, failure} -body {
+    set h [tjv::compile -type integer]
+    tjv::validate $h a
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {Error while validating data: should be integer}
+
+test tjvValidateCmdBasic-3.2.1 {Test compiled format, outcome variable, success} -body {
+    set h [tjv::compile -type integer]
+    unset -nocomplain result err
+    lappend result [tjv::validate $h 1 outcome]
+    lappend result $outcome
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result outcome
+} -result {1 {}}
+
+test tjvValidateCmdBasic-3.2.2 {Test compiled format, outcome variable, failure} -body {
+    set h [tjv::compile -type integer]
+    unset -nocomplain result err
+    lappend result [tjv::validate $h a outcome]
+    lappend result $outcome
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result outcome
+} -result {0 {error {name ValidationError message {Error while validating data: should be integer}} data {{keyword type dataPath {} message {should be integer}}}}}
+
+

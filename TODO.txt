@@ -1,0 +1,19 @@
+Add support for minlength and maxlength validation for strings
+
+Add support for minitems and maxitems validation for arrays
+
+Add ability to define a callback procedure for validation. It can be -command option
+    for the type string, or special type "command".
+
+Add ability to define json array without validation. Currently, json array can be defined
+    with -items option. However, this option does not allow empty schema definition.
+
+Check failed tests for all validateType*.test files.
+
+Add tests to outcome.test to get each type in Tcl and Json formats.
+
+ajv allows to specify 2 checks for string format. The first check is very simple and
+   basic pattern. It should be executed fast. If it fails, a more complex regexp
+   will be used, which will take longer to execute. This maximizes performance for
+   simple cases by using lightweight regexps first. This feature should be added
+   to tjv.

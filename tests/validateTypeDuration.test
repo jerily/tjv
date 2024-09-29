@@ -1,0 +1,74 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: https://github.com/peterhellberg/duration/blob/master/duration_test.go
+
+test_custom_format duration {
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - PT1.5M
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - PT0.5H
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    # Probably shouldn't be valid since only the last value can have fractions
+    - PT0.5H29M60S
+    + PT15S
+    + PT1M
+    + PT3M
+    + PT130S
+    + PT2M10S
+    + P1DT2S
+    + PT5M10S
+    + PT1H30M5S
+    + P2DT1H10S
+    + PT1004199059S
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - P3DT5H20M30.123S
+    + P1W
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - P0.123W
+    # TODO: should be positive
+    - P1WT5S
+    # TODO: should be positive
+    - P1WT1H
+    + P2YT1H30M5S
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - P1Y2M3DT5H20M30.123S
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - -P1Y2M3DT5H20M30.123S
+    # TODO: should be positive
+    - -P1WT1H
+    # TODO: should be positive
+    - -P1DT2S
+    # TODO: should be positive
+    - -PT1M5S
+    # TODO: ERROR: fractional numbers are not supported by current regexp
+    - -P0.123W
+    # fields in the wrong order
+    - P1M2Y
+    # negative value
+    - P-1Y
+    # negative value
+    - P1YT-1M
+    # missing T
+    - P1S
+    # missing P
+    - 1Y
+    # no value is specified for months
+    - P1YM5D
+    # wrong format of string
+    - FOOBAR
+    #no time fields present
+    - P
+    # no time fields present
+    - PT
+    # ending with T
+    - P1Y2M3DT
+}

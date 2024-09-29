@@ -1,0 +1,47 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateJsonObject-1.1 {Test empty object} -body {
+    tjv::validate -type json -properties {{foo -type object}} {{ "foo": {} }}
+} -result {}
+
+test tjvValidateJsonObject-2.1 {Test incorrect object} -body {
+    tjv::validate -type json -properties {{foo -type object}} {{ "foo": true }}
+} -returnCodes error -result {Error while validating data: .foo should be object}
+
+test tjvValidateJsonObject-3.1 {Test simple object, correct properties} -body {
+    tjv::validate -type json -properties {{foo -type object -properties {
+        {foo -type string}
+        {bar -type integer}
+    }}} {{
+        "foo": {
+            "foo": "bar",
+            "bar": 1
+        }
+    }}
+} -result {}
+
+test tjvValidateJsonObject-3.2 {Test simple object, -required properties} -body {
+    tjv::validate -type json -properties {{foo -type object -properties {
+        {foo -type string}
+        {bar -type integer -required}
+        {baz -type string -required}
+        {qux -type integer}
+    }}} {{
+        "foo": {
+            "foo": "bar",
+            "baz": "qux",
+            "abc": "cde"
+        }
+    }}
+} -returnCodes error -result {Error while validating data: .foo should have required property 'bar'}
+
+

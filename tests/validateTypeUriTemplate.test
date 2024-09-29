@@ -1,0 +1,66 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: <none>
+
+test_custom_format uri-template {
+    + http://example.com/{user}
+    + https://api.example.com/resources/{id}
+    + /files/{filename}.{ext}
+    + https://{hostname}/path/to/resource
+    + https://api.example.com/{version}/users/{user_id}
+    + /search?q={query}
+    + /books/{isbn}/details
+    + https://example.com/{lang}/docs/{doc_id}
+    + {scheme}://example.com
+    + http://example.com/{user}/repos?sort={sort_order}
+    + https://{subdomain}.example.com/{path}
+    + /user/{user}/posts/{post}
+    + /orders/{order_id}?status={status}
+    + /api/{version}/customers/{customer_id}/orders
+    + mailto:{email}
+    + {base_url}/images/{image_id}
+    + /blog/{year}/{month}/{slug}
+    + https://example.com/search{?q,page}
+    + /users/{user_id}{?fields}
+    + {+path}/here
+    # Invalid character in variable name
+    - http://example.com/{user name}
+    # Space within variable name
+    - http://example.com/{user name}
+    # Double braces without content
+    - http://example.com/{{user}}
+    # Invalid character in variable expression
+    - http://example.com/{user!}
+    # Variable name starts with a digit
+    # TODO: should be negative
+    + http://example.com/{1user}
+    # Unencoded space in path
+    - http://example.com/{user id}
+    # Empty variable name
+    - http://example.com/{}
+    # Invalid prefix operator without variable
+    - http://example.com{/}
+    # Missing variable name after operator
+    - http://example.com/{+}
+    # Illegal character within variable
+    - http://example.com/{us@er}
+    # Variable with disallowed characters
+    # TODO: should be negative
+    + http://example.com/{user_name}
+    # Special characters not allowed in variable
+    - http://example.com/{user#id}
+    # Incomplete operator syntax
+    - http://example.com/{var:}
+    # Invalid variable modifier
+    - http://example.com/{user:abc}
+}
+

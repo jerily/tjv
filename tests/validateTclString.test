@@ -1,0 +1,54 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateTclString-1.1 {Test without parameters, empty string} -body {
+    tjv::validate -type string ""
+} -result {}
+
+test tjvValidateTclString-1.2 {Test without parameters, non-empty string} -body {
+    tjv::validate -type string "abcd"
+} -result {}
+
+test tjvValidateTclString-2.1 {Test -match glob, success} -body {
+    tjv::validate -type string -match glob -pattern "abc*" "abcd"
+} -result {}
+
+test tjvValidateTclString-2.2 {Test -match glob, failure} -body {
+    tjv::validate -type string -match glob -pattern "abc*" "123"
+} -returnCodes error -result {Error while validating data: value does not match the specified glob pattern 'abc*'}
+
+test tjvValidateTclString-3.1 {Test -match regexp, success} -body {
+    tjv::validate -type string -match regexp -pattern {^ab.+x$} "abcdx"
+} -result {}
+
+test tjvValidateTclString-3.2 {Test -match regexp, failure} -body {
+    tjv::validate -type string -match regexp -pattern {^ab.+x$} "123"
+} -returnCodes error -result {Error while validating data: value does not match the specified regexp pattern '^ab.+x$'}
+
+test tjvValidateTclString-3.3 {Test -match regexp, test pre-compiled regexp, make sure pre-compiled regexp is not broken after error message} -body {
+    set h [tjv::compile -type string -match regexp -pattern {^ab.+x$}]
+    unset -nocomplain result
+    lappend result [$h validate "ab123x"]
+    lappend result [$h validate "ab!!!!!x"]
+    lappend result [$h validate "ab!!!!!" err]
+    lappend result [$h validate "abFFFFFx"]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result err
+} -result {{} {} 0 {}}
+
+test tjvValidateTclString-4.1 {Test -match list, success} -body {
+    tjv::validate -type string -match list -pattern {on off} "on"
+} -result {}
+
+test tjvValidateTclString-4.2 {Test -match list, failure} -body {
+    tjv::validate -type string -match list -pattern {on off} "bla"
+} -returnCodes error -result {Error while validating data: value is not the specified list of allowed values 'on off'}

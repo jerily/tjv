@@ -1,0 +1,44 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateTclArray-1.1 {Test empty string} -body {
+    tjv::validate -type array ""
+} -result {}
+
+test tjvValidateTclArray-2.1 {Test incorrect object} -body {
+    tjv::validate -type array "\{"
+} -returnCodes error -result {Error while validating data: should be array (Tcl list)}
+
+test tjvValidateTclArray-3.1 {Test correct list} -body {
+    tjv::validate -type array [list "foo" "bar" "{baz}" "\{qux"]
+} -result {}
+
+test tjvValidateTclArray-4.1 {Test list validation, correct} -body {
+    tjv::validate -type array -items {-type integer} [list 1 2 -100 -500]
+} -result {}
+
+test tjvValidateTclArray-4.2 {Test list validation, incorrect} -body {
+    tjv::validate -type array -items {-type integer} [list 1 2 "a" -500]
+} -returnCodes error -result {Error while validating data: .[2] should be integer}
+
+test tjvValidateTclArray-5.1 {Test list of objects, correct} -body {
+    tjv::validate -type array -items {-type object -properties {
+        {foo -type integer}
+        {bar -type string}
+    }} [list [dict create foo 1 bar baz] [dict create foo 400 bar gggh]]
+} -result {}
+
+test tjvValidateTclArray-5.2 {Test list of objects, incorrect} -body {
+    tjv::validate -type array -items {-type object -properties {
+        {foo -type integer}
+        {bar -type string -required}
+    }} [list [dict create foo inval bar baz] [dict create foo 400] [dict create]]
+} -returnCodes error -result {Error while validating data: .[0].foo should be integer, .[1] should have required property 'bar', .[2] should have required property 'bar'}

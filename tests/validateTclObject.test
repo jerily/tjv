@@ -1,0 +1,83 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateTclObject-1.1 {Test empty string} -body {
+    tjv::validate -type object ""
+} -result {}
+
+test tjvValidateTclObject-2.1 {Test incorrect object} -body {
+    tjv::validate -type object "foo"
+} -returnCodes error -result {Error while validating data: should be object (Tcl dict)}
+
+test tjvValidateTclObject-3.1 {Test simple object, correct properties} -body {
+    tjv::validate -type object -properties {
+        {foo -type string}
+        {bar -type integer}
+    } {
+        foo bar
+        bar 1
+    }
+} -result {}
+
+test tjvValidateTclObject-3.2 {Test simple object, -required properties} -body {
+    tjv::validate -type object -properties {
+        {foo -type string}
+        {bar -type integer -required}
+        {baz -type string -required}
+        {qux -type integer}
+    } {
+        foo bar
+        baz 123
+        abc cde
+    }
+} -returnCodes error -result {Error while validating data: should have required property 'bar'}
+
+test tjvValidateTclObject-4.1 {Test nested objects, correct properties} -body {
+    tjv::validate -type object -properties {
+        {foo -type object -properties {
+            {foo -type object -properties {
+                {test1 -type string}
+                {test2 -type string}
+            }}
+            {bar -type integer}
+        }}
+    } {
+        foo {
+            foo {
+                test1 1
+                test2 2
+            }
+            bar 4
+        }
+
+    }
+} -result {}
+
+test tjvValidateTclObject-4.2 {Test nested objects, -required properties} -body {
+    tjv::validate -type object -properties {
+        {foo -type object -properties {
+            {foo -type object -properties {
+                {test1 -type integer}
+                {test2 -type string -required}
+            }}
+            {bar -type integer -required}
+        }}
+    } {
+        foo {
+            foo {
+                test1 bad-value
+                testX 2
+            }
+            nobar 4
+        }
+
+    }
+} -returnCodes error -result {Error while validating data: .foo.foo.test1 should be integer, .foo.foo should have required property 'test2', .foo should have required property 'bar'}

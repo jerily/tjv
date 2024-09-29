@@ -1,0 +1,46 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateTclInteger-1.1 {Test without parameters, empty value} -body {
+    tjv::validate -type integer ""
+} -returnCodes error -result {Error while validating data: should be integer}
+
+test tjvValidateTclInteger-1.2 {Test without parameters, wrong value} -body {
+    tjv::validate -type integer "a"
+} -returnCodes error -result {Error while validating data: should be integer}
+
+test tjvValidateTclInteger-1.3 {Test without parameters, correct value} -body {
+    tjv::validate -type integer 123
+} -result {}
+
+test tjvValidateTclInteger-2.1 {Test with -minimum, wrong value} -body {
+    tjv::validate -type integer -minimum -10 -123
+} -returnCodes error -result {Error while validating data: value is less than the minimum -10}
+
+test tjvValidateTclInteger-2.2 {Test with -minimum, correct value} -body {
+    tjv::validate -type integer -minimum 10 1024
+} -result {}
+
+test tjvValidateTclInteger-3.1 {Test with -maximum, wrong value} -body {
+    tjv::validate -type integer -maximum 10 123
+} -returnCodes error -result {Error while validating data: value is greater than the maximum 10}
+
+test tjvValidateTclInteger-3.2 {Test with -maximum, correct value} -body {
+    tjv::validate -type integer -maximum -20 -500
+} -result {}
+
+test tjvValidateTclInteger-4.1 {Test with -minimum and -maximum, wrong value} -body {
+    tjv::validate -type integer -minimum 0 -maximum 100 -600
+} -returnCodes error -result {Error while validating data: value is less than the minimum 0}
+
+test tjvValidateTclInteger-4.2 {Test with -minimum and -maximum, correct value} -body {
+    tjv::validate -type integer -minimum -10 -maximum 10000000 0
+} -result {}

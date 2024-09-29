@@ -1,0 +1,66 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvValidateHandleBasic-1.1 {Test base format, no arguments} -body {
+    set h [tjv::compile -type integer]
+    $h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -match glob -result {wrong # args: should be "::tjv::handle0x* validate value ?outcome_variable?" or "::tjv::handle0x* destroy"}
+
+test tjvValidateHandleBasic-2.1 {Test base format, destroy subcommand} -body {
+    unset -nocomplain result
+    set h [tjv::compile -type integer]
+    lappend result [llength [info commands $h]]
+    $h destroy
+    lappend result [llength [info commands $h]]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result
+} -result {1 0}
+
+test tjvValidateHandleBasic-3.1.1 {Test base format, validate, no outcome variable, success} -body {
+    set h [tjv::compile -type integer]
+    $h validate 1
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -result {}
+
+test tjvValidateHandleBasic-3.1.2 {Test base format, validate, no outcome variable, failure} -body {
+    set h [tjv::compile -type integer]
+    $h validate a
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {Error while validating data: should be integer}
+
+test tjvValidateHandleBasic-3.2.1 {Test base format, validate, with outcome variable, success} -body {
+    unset -nocomplain result err
+    set h [tjv::compile -type integer]
+    lappend result [$h validate 1 outcome]
+    lappend result $outcome
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result outcome
+} -result {1 {}}
+
+test tjvValidateHandleBasic-3.2.2 {Test base format, validate, with outcome variable, failure} -body {
+    unset -nocomplain result err
+    set h [tjv::compile -type integer]
+    lappend result [$h validate a outcome]
+    lappend result $outcome
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h result outcome
+} -result {0 {error {name ValidationError message {Error while validating data: should be integer}} data {{keyword type dataPath {} message {should be integer}}}}}
+

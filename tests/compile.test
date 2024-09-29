@@ -1,0 +1,630 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+test tjvCompile-1.1.1 {Test base syntax, no parameters} -body {
+    tjv::compile
+} -cleanup {
+} -returnCodes error -result {wrong # args: should be "tjv::compile -type validation_type ?args? ?variable_name?"}
+
+test tjvCompile-1.1.2 {Test base syntax, wrong parameters} -body {
+    tjv::compile a b c
+} -cleanup {
+} -returnCodes error -result {unrecognized argument "b"}
+
+test tjvCompile-1.2.1 {Test base syntax, without variable_name, make sure command exists} -body {
+    set h [tjv::compile -type integer]
+    info commands $h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-1.2.2 {Test base syntax, without variable_name, destroy} -body {
+    set h [tjv::compile -type integer]
+    $h destroy
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-1.2.3 {Test base syntax, without variable_name, destroy, make sure command is destroyed} -body {
+    set h [tjv::compile -type integer]
+    $h destroy
+    info commands $h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -result {}
+
+test tjvCompile-1.2.4 {Test base syntax, with variable_name} -body {
+    set h [tjv::compile -type integer foo]
+    string equal $h $foo
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h foo
+} -result 1
+
+test tjvCompile-1.2.5 {Test base syntax, unset bound variable} -body {
+    set h [tjv::compile -type integer foo]
+    unset foo
+    info commands $h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h foo
+} -result {}
+
+test tjvCompile-1.2.6 {Test base syntax, unset bound variable in local proc scope} -body {
+    proc ::tjvCompile126 {} {
+        set h [tjv::compile -type integer foo]
+        return $h
+    }
+    set h [tjvCompile126]
+    info commands $h
+} -cleanup {
+    rename tjvCompile126 {}
+    catch { $h destroy }
+    unset -nocomplain h
+} -result {}
+
+#test tjvCompile-1.3.1 {Test base syntax, missing value for -command} -body {
+#    tjv::compile -type integer -command
+#} -returnCodes error -result {"-command" option requires an additional argument}
+
+test tjvCompile-1.3.2 {Test base syntax, missing value for -pattern} -body {
+    tjv::compile -type integer -pattern
+} -returnCodes error -result {"-pattern" option requires an additional argument}
+
+test tjvCompile-1.3.3 {Test base syntax, missing value for -minimum} -body {
+    tjv::compile -type integer -minimum
+} -returnCodes error -result {"-minimum" option requires an additional argument}
+
+test tjvCompile-1.3.4 {Test base syntax, missing value for -maximum} -body {
+    tjv::compile -type integer -maximum
+} -returnCodes error -result {"-maximum" option requires an additional argument}
+
+test tjvCompile-1.3.5 {Test base syntax, missing value for -properties} -body {
+    tjv::compile -type integer -properties
+} -returnCodes error -result {"-properties" option requires an additional argument}
+
+test tjvCompile-1.3.6 {Test base syntax, missing value for -match} -body {
+    tjv::compile -type integer -match
+} -returnCodes error -result {"-match" option requires an additional argument}
+
+test tjvCompile-1.3.7 {Test base syntax, missing value for -items} -body {
+    tjv::compile -type integer -items
+} -returnCodes error -result {"-items" option requires an additional argument}
+
+test tjvCompile-1.3.8 {Test base syntax, missing value for -outkey} -body {
+    tjv::compile -type integer -outkey
+} -returnCodes error -result {"-outkey" option requires an additional argument}
+
+test tjvCompile-1.4 {Test base syntax, wrong -type} -body {
+    tjv::compile -type foo
+} -returnCodes error -result {bad type "foo": must be json, object, array, list, integer, float, double, boolean, string, email, duration, uri, uri-template, url, hostname, ipv4, ipv6, uuid, json-pointer, json-pointer-uri-fragment, or relative-json-pointer}
+
+test tjvCompile-2.1 {Test object compilation, no parameters} -body {
+    set h [tjv::compile -type object]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-2.2 {Test object compilation, wrong parameter} -body {
+    set h [tjv::compile -type object -foo -bar]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {unrecognized argument "-bar"}
+
+test tjvCompile-2.3 {Test object compilation, wrong properties} -body {
+    set h [tjv::compile -type object -properties -foo -bar]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {-foo->required option -type is not specified or its value is missing}
+
+test tjvCompile-2.4 {Test object compilation, empty properties} -body {
+    set h [tjv::compile -type object -properties {}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-2.5.2 {Test object compilation, unsupported parameter for object -pattern} -body {
+    set h [tjv::compile -type object -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "object"}
+
+test tjvCompile-2.5.3 {Test object compilation, unsupported parameter for object -minimum} -body {
+    set h [tjv::compile -type object -minimum foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-minimum" option is not supported for type "object"}
+
+test tjvCompile-2.5.4 {Test object compilation, unsupported parameter for object -items} -body {
+    set h [tjv::compile -type object -items foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-items" option is not supported for type "object"}
+
+test tjvCompile-2.6.1 {Test object compilation, 1 property} -body {
+    set h [tjv::compile -type object -properties {{foo -type integer}}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-2.6.2 {Test object compilation, 3 properties} -body {
+    set h [tjv::compile -type object -properties {{foo -type integer} {bar -type integer} {baz -type integer}}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-3.1.1 {Test array compilation, no parameters} -body {
+    set h [tjv::compile -type array]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-3.1.2 {Test array (list) compilation, no parameters} -body {
+    set h [tjv::compile -type list]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-3.2 {Test array compilation, empty items} -body {
+    set h [tjv::compile -type array -items {}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {required option -type is not specified or its value is missing}
+
+test tjvCompile-3.3.2 {Test array compilation, unsupported parameter -pattern} -body {
+    set h [tjv::compile -type array -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "array"}
+
+test tjvCompile-3.3.3 {Test array compilation, unsupported parameter -minimum} -body {
+    set h [tjv::compile -type array -minimum foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-minimum" option is not supported for type "array"}
+
+test tjvCompile-3.3.4 {Test array compilation, unsupported parameter -properties} -body {
+    set h [tjv::compile -type array -properties foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-properties" option is not supported for type "array"}
+
+test tjvCompile-3.4 {Test array compilation, -items is specified} -body {
+    set h [tjv::compile -type array -items {-type integer}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-4.1 {Test string compilation, no parameters} -body {
+    set h [tjv::compile -type string]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-4.2 {Test string compilation, parameter -outkey} -body {
+    set h [tjv::compile -type string -outkey foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-4.3.1 {Test string compilation, unsupported parameter -items} -body {
+    set h [tjv::compile -type string -items foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-items" option is not supported for type "string"}
+
+test tjvCompile-4.3.2 {Test string compilation, unsupported parameter -properties} -body {
+    set h [tjv::compile -type string -properties foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-properties" option is not supported for type "string"}
+
+test tjvCompile-4.3.3 {Test string compilation, unsupported parameter -minimum} -body {
+    set h [tjv::compile -type string -minimum foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-minimum" option is not supported for type "string"}
+
+test tjvCompile-4.4 {Test string compilation, -match without -pattern} -body {
+    set h [tjv::compile -type string -match glob]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {option -match is specified, but -pattern is missing}
+
+test tjvCompile-4.5.1 {Test string compilation, wrong -match} -body {
+    set h [tjv::compile -type string -pattern foo -match foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {bad matching type "foo": must be glob, regexp, or list}
+
+test tjvCompile-4.5.2.1 {Test string compilation, -match glob} -body {
+    set h [tjv::compile -type string -pattern foo -match glob]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-4.5.3.1 {Test string compilation, -match regexp} -body {
+    set h [tjv::compile -type string -pattern foo -match regexp]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-4.5.3.2 {Test string compilation, -match regexp, bad regexp} -body {
+    set h [tjv::compile -type string -pattern "\\\\(" -match regexp]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {couldn't compile regular expression pattern: parentheses () not balanced}
+
+test tjvCompile-4.5.4.1 {Test string compilation, -match list} -body {
+    set h [tjv::compile -type string -pattern foo -match list]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-4.5.4.2 {Test string compilation, -match list, bad list} -body {
+    set h [tjv::compile -type string -pattern "\{" -match list]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {unmatched open brace in list}
+
+test tjvCompile-5.1 {Test integer compilation, no parameters} -body {
+    set h [tjv::compile -type integer]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-5.2 {Test integer compilation, parameter -outkey} -body {
+    set h [tjv::compile -type integer -outkey foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-5.3.1 {Test integer compilation, unsupported parameter -items} -body {
+    set h [tjv::compile -type integer -items foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-items" option is not supported for type "integer"}
+
+test tjvCompile-5.3.2 {Test integer compilation, unsupported parameter -properties} -body {
+    set h [tjv::compile -type integer -properties foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-properties" option is not supported for type "integer"}
+
+test tjvCompile-5.3.3 {Test integer compilation, unsupported parameter -pattern} -body {
+    set h [tjv::compile -type integer -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "integer"}
+
+test tjvCompile-5.4.1 {Test integer compilation, -minimum parameter} -body {
+    set h [tjv::compile -type integer -minimum 0]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-5.4.2 {Test integer compilation, wrong -minimum parameter} -body {
+    set h [tjv::compile -type integer -minimum a]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {expected integer but got "a"}
+
+test tjvCompile-5.4.3 {Test integer compilation, wrong -minimum parameter (float)} -body {
+    set h [tjv::compile -type integer -minimum 1.0]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {expected integer but got "1.0"}
+
+test tjvCompile-5.5.1 {Test integer compilation, -maximum parameter} -body {
+    set h [tjv::compile -type integer -maximum 0]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-5.5.2 {Test integer compilation, wrong -maximum parameter} -body {
+    set h [tjv::compile -type integer -maximum a]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {expected integer but got "a"}
+
+test tjvCompile-5.5.3 {Test integer compilation, wrong -maximum parameter (float)} -body {
+    set h [tjv::compile -type integer -maximum 1.0]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {expected integer but got "1.0"}
+
+test tjvCompile-6.1 {Test double compilation, no parameters} -body {
+    set h [tjv::compile -type double]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-6.2 {Test double compilation, parameter -outkey} -body {
+    set h [tjv::compile -type double -outkey foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-6.3.1 {Test double compilation, unsupported parameter -items} -body {
+    set h [tjv::compile -type double -items foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-items" option is not supported for type "double"}
+
+test tjvCompile-6.3.2 {Test double compilation, unsupported parameter -properties} -body {
+    set h [tjv::compile -type double -properties foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-properties" option is not supported for type "double"}
+
+test tjvCompile-6.3.3 {Test double compilation, unsupported parameter -pattern} -body {
+    set h [tjv::compile -type double -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "double"}
+
+test tjvCompile-6.4.1 {Test double compilation, -minimum parameter} -body {
+    set h [tjv::compile -type double -minimum 0]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-6.4.2 {Test double compilation, wrong -minimum parameter} -body {
+    set h [tjv::compile -type double -minimum a]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {expected floating-point number but got "a"}
+
+test tjvCompile-6.5.1 {Test double compilation, -maximum parameter} -body {
+    set h [tjv::compile -type double -maximum 0]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-6.5.2 {Test double compilation, wrong -maximum parameter} -body {
+    set h [tjv::compile -type double -maximum a]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {expected floating-point number but got "a"}
+
+test tjvCompile-7.1 {Test boolean compilation, no parameters} -body {
+    set h [tjv::compile -type boolean]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-7.2 {Test boolean compilation, parameter -outkey} -body {
+    set h [tjv::compile -type boolean -outkey foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-7.3.1 {Test boolean compilation, unsupported parameter -items} -body {
+    set h [tjv::compile -type boolean -items foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-items" option is not supported for type "boolean"}
+
+test tjvCompile-7.3.2 {Test boolean compilation, unsupported parameter -properties} -body {
+    set h [tjv::compile -type boolean -properties foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-properties" option is not supported for type "boolean"}
+
+test tjvCompile-7.3.3 {Test boolean compilation, unsupported parameter -pattern} -body {
+    set h [tjv::compile -type boolean -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "boolean"}
+
+test tjvCompile-7.3.4 {Test boolean compilation, unsupported parameter -minimum} -body {
+    set h [tjv::compile -type boolean -minimum foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-minimum" option is not supported for type "boolean"}
+
+test tjvCompile-8.1 {Test json compilation, no parameters} -body {
+    set h [tjv::compile -type json]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-8.2 {Test json compilation, wrong parameter} -body {
+    set h [tjv::compile -type json -foo -bar]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {unrecognized argument "-bar"}
+
+test tjvCompile-8.3 {Test json compilation, wrong properties} -body {
+    set h [tjv::compile -type json -properties -foo -bar]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {-foo->required option -type is not specified or its value is missing}
+
+test tjvCompile-8.4 {Test json compilation, empty properties} -body {
+    set h [tjv::compile -type json -properties {}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-8.5.2 {Test json compilation, unsupported parameter -pattern} -body {
+    set h [tjv::compile -type json -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "json"}
+
+test tjvCompile-8.5.3 {Test json compilation, unsupported parameter for json -minimum} -body {
+    set h [tjv::compile -type json -minimum foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-minimum" option is not supported for type "json"}
+
+test tjvCompile-8.6.1 {Test json compilation, 1 property} -body {
+    set h [tjv::compile -type json -properties {{foo -type integer}}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-8.6.2 {Test json compilation, 3 properties} -body {
+    set h [tjv::compile -type json -properties {{foo -type integer} {bar -type integer} {baz -type integer}}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-8.7.1 {Test json compilation, -items is specified} -body {
+    set h [tjv::compile -type json -items {-type integer}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-8.7.2 {Test json compilation, empty -items is specified} -body {
+    set h [tjv::compile -type json -items {}]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {required option -type is not specified or its value is missing}
+
+test tjvCompile-8.7.3 {Test json compilation, incorrect -items is specified} -body {
+    set h [tjv::compile -type json -items "\{"]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {unmatched open brace in list}
+
+test tjvCompile-9.1 {Test email compilation, no parameters} -body {
+    set h [tjv::compile -type email]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-9.2 {Test email compilation, parameter -outkey} -body {
+    set h [tjv::compile -type email -outkey foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -match glob -result {::tjv::handle0x*}
+
+test tjvCompile-9.3.1 {Test email compilation, unsupported parameter -items} -body {
+    set h [tjv::compile -type email -items foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-items" option is not supported for type "email"}
+
+test tjvCompile-9.3.2 {Test email compilation, unsupported parameter -properties} -body {
+    set h [tjv::compile -type email -properties foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-properties" option is not supported for type "email"}
+
+test tjvCompile-9.3.3 {Test email compilation, unsupported parameter -minimum} -body {
+    set h [tjv::compile -type email -minimum foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-minimum" option is not supported for type "email"}
+
+test tjvCompile-9.3.4 {Test email compilation, unsupported parameter -match} -body {
+    set h [tjv::compile -type email -match foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-match" option is not supported for type "email"}
+
+test tjvCompile-9.3.5 {Test email compilation, unsupported parameter -pattern} -body {
+    set h [tjv::compile -type email -pattern foo]
+} -cleanup {
+    catch { $h destroy }
+    unset -nocomplain h
+} -returnCodes error -result {"-pattern" option is not supported for type "email"}

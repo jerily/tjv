@@ -1,0 +1,49 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: https://gist.github.com/cjaoude/fd9910626629b53c4d25
+
+test_custom_format email {
+    + email@example.com
+    + firstname.lastname@example.com
+    + email@subdomain.example.com
+    + firstname+lastname@example.com
+    + email@123.123.123.123
+    # TODO: should be positive
+    - email@[123.123.123.123]
+    # TODO: should be positive
+    - "email"@example.com
+    + 1234567890@example.com
+    + email@example-one.com
+    + _______@example.com
+    + email@example.name
+    + email@example.museum
+    + email@example.co.jp
+    + firstname-lastname@example.com
+    - plainaddress
+    - #@%^%#$@#$@#.com
+    - @example.com
+    - Joe Smith <email@example.com>
+    - email.example.com
+    - email@example@example.com
+    - .email@example.com
+    - email.@example.com
+    - email..email@example.com
+    - email@example.com (Joe Smith)
+    - email@example
+    - email@-example.com
+    # TODO: should be negative
+    + email@example.web
+    # TODO: should be negative
+    + email@111.222.333.44444
+    - email@example..com
+    - Abc..123@example.com
+}

@@ -1,0 +1,68 @@
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2024 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+
+package require tcltest
+namespace import -force ::tcltest::test
+
+package require tjv
+
+source [file join [file dirname [info script]] common.tcl]
+
+# Test cases are from: <none>
+
+test_custom_format ipv4 {
+    + 192.168.1.1
+    + 10.0.0.1
+    + 172.16.0.0
+    + 8.8.8.8
+    + 255.255.255.255
+    + 0.0.0.0
+    + 192.0.2.146
+    + 203.0.113.0
+    + 198.51.100.23
+    + 127.0.0.1
+    + 1.2.3.4
+    + 100.64.0.1
+    + 169.254.0.1
+    + 223.255.255.255
+    + 192.168.100.200
+    + 150.150.150.150
+    + 240.0.0.1
+    + 50.16.123.255
+    + 200.200.200.200
+    + 203.0.113.255
+    # octets exceed 255
+    - 256.256.256.256
+    # octet exceeds 255
+    - 192.168.1.999
+    # negative numbers are not allowed
+    - -192.168.1.1
+    # missing an octet
+    - 192.168.1.
+    # extra octet
+    - 192.168.1.1.1
+    # missing an octet
+    - 192.168..1
+    # non-numeric octet
+    - 192.168.1.a
+    # leading zeros in octet
+    - 192.168.01.1
+    # trailing period
+    - 192.168.1.1.
+    # space within address
+    - 192.168.1 .1
+    # hexadecimal notation is not allowed
+    - 192.168.1.0x1
+    # negative octet
+    - 192.168.1.-1
+    # subnet notation is not a plain IPv4 address
+    - 192.168.1.1/24
+    # port should not be part of the IP address
+    - 192.168.1.1:80
+    # missing an octet
+    - 1.1.1
+    # all octets exceed 255
+    - 999.999.999.999
+}
+
