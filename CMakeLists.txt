@@ -19,20 +19,10 @@ find_package(cJSON REQUIRED)
 message(STATUS "CJSON_LIBRARIES: ${CJSON_LIBRARIES}")
 message(STATUS "CJSON_INCLUDE_DIRS: ${CJSON_INCLUDE_DIRS}")
 
-find_package(TCL 8.6.13 REQUIRED)  # TCL_INCLUDE_PATH TCL_LIBRARY
-find_program(TCL_TCLSH
-  NAMES
-      tclsh86 tclsh8.6
-      tclsh90 tclsh9.0
-      tclsh
-  PATHS
-      ${TCL_INCLUDE_PATH}/../bin
-      ${TCL_INCLUDE_PATH}/../../bin
-  NO_DEFAULT_PATH
-)
+find_package(TclStub 8.6.13 REQUIRED)
 
 message(STATUS "TCL_INCLUDE_PATH: ${TCL_INCLUDE_PATH}")
-message(STATUS "TCL_LIBRARY: ${TCL_LIBRARY}")
+message(STATUS "TCL_STUB_LIBRARY: ${TCL_STUB_LIBRARY}")
 message(STATUS "TCL_TCLSH: ${TCL_TCLSH}")
 
 add_compile_options(-Wall -Wextra -Wpedantic)
@@ -84,8 +74,8 @@ add_library(tjv SHARED
 set_target_properties(tjv PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 include_directories(${TCL_INCLUDE_PATH} ${CJSON_INCLUDE_DIRS})
-target_link_libraries(tjv PRIVATE ${TCL_LIBRARY} ${CJSON_LIBRARIES})
-get_filename_component(TCL_LIBRARY_PATH "${TCL_LIBRARY}" PATH)
+target_compile_definitions(tjv PRIVATE USE_TCL_STUBS)
+target_link_libraries(tjv PRIVATE ${TCL_STUB_LIBRARY} ${CJSON_LIBRARIES})
 
 install(TARGETS ${TARGET}
         LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${TARGET}${PROJECT_VERSION}
