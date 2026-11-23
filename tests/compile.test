@@ -293,7 +293,7 @@ test tjvCompile-4.5.3.2 {Test string compilation, -match regexp, bad regexp} -bo
 } -cleanup {
     catch { $h destroy }
     unset -nocomplain h
-} -returnCodes error -result {couldn't compile regular expression pattern: parentheses () not balanced}
+} -returnCodes error -match regexp -result {^(couldn't|cannot) compile regular expression pattern: parentheses \(\) not balanced$}
 
 test tjvCompile-4.5.4.1 {Test string compilation, -match list} -body {
     set h [tjv::compile -type string -pattern foo -match list]

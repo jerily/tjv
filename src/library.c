@@ -276,7 +276,6 @@ static int tjv_CompileCmd(ClientData clientData, Tcl_Interp *interp, int objc, T
 int Tjv_Init(Tcl_Interp *interp) {
 
     if (Tcl_InitStubs(interp, MIN_VERSION, 0) == NULL) {
-        SetResult("Unable to initialize Tcl stubs");
         return TCL_ERROR;
     }
 
